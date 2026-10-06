@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { SaveJson, Dweller } from '../types/save';
 import { applyCustomization, createDwellerAtDoor, createLegendaryDweller, type DwellerCustomization, type NewDwellerInput } from '../lib/dwellerEdit';
 import type { LegendaryMeta } from '../types/legendary';
-import { unassignDweller } from '../lib/rooms';
+import { unassignDweller, ALL_ROOMS } from '../lib/rooms';
 import { addStashItems, canStash, replacedGear } from '../lib/stash';
 
 export type Page = 'vault' | 'dweller';
@@ -33,6 +33,14 @@ interface SaveState {
   page: Page;
   /** True when the loaded save is the bundled demo file. */
   isDemo: boolean;
+  /** Room key (or ALL_ROOMS / UNASSIGNED) the dweller strip is filtered to. */
+  roomFilter: string;
+  /** Text narrowing the room badges in the dweller strip. */
+  roomQuery: string;
+  setRoomFilter: (key: string) => void;
+  setRoomQuery: (query: string) => void;
+  /** Filter the dweller strip to one room, clearing any room search that would hide it. */
+  showRoom: (key: string) => void;
   setSave: (save: SaveJson, fileName: string, opts?: { isDemo?: boolean }) => void;
   /** Switch the top-level page. Navigating to 'dweller' selects the first dweller if none is selected. */
   setPage: (page: Page) => void;
@@ -62,10 +70,17 @@ export const useSaveStore = create<SaveState>((set, get) => ({
   fileName: null,
   page: 'vault',
   isDemo: false,
+  roomFilter: ALL_ROOMS,
+  roomQuery: '',
+  setRoomFilter: (key) => set({ roomFilter: key }),
+  setRoomQuery: (query) => set({ roomQuery: query }),
+  showRoom: (key) => set({ roomFilter: key, roomQuery: '' }),
   setSave: (save, fileName, opts) =>
     set({
       save,
       fileName,
+      roomFilter: ALL_ROOMS,
+      roomQuery: '',
       // Open on the Dweller Settings tab with the first dweller selected.
       selectedDwellerId: save.dwellers.dwellers[0]?.serializeId ?? null,
       page: 'dweller',
@@ -138,5 +153,7 @@ export const useSaveStore = create<SaveState>((set, get) => ({
       selectedDwellerId: nextSelected,
     };
   }),
-  clear: () => set({ save: null, selectedDwellerId: null, fileName: null, isDemo: false }),
+  clear: () => set({
+    save: null, selectedDwellerId: null, fileName: null, isDemo: false, roomFilter: ALL_ROOMS, roomQuery: '',
+  }),
 }));

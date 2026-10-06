@@ -126,8 +126,10 @@ export function CharacterFooter() {
   const save = useSaveStore((s) => s.save);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState('');
-  const [roomQuery, setRoomQuery] = useState('');
-  const [roomFilter, setRoomFilter] = useState<string>(ALL_ROOMS);
+  const roomQuery = useSaveStore((s) => s.roomQuery);
+  const setRoomQuery = useSaveStore((s) => s.setRoomQuery);
+  const roomFilter = useSaveStore((s) => s.roomFilter);
+  const setRoomFilter = useSaveStore((s) => s.setRoomFilter);
 
   const all = save?.dwellers.dwellers ?? [];
   const { rooms, assignments, counts } = useMemo(() => {
@@ -165,15 +167,10 @@ export function CharacterFooter() {
     : all.length;
   const dwellers = filterByText(inRoom, query, (d) => `${d.name ?? ''} ${d.lastName ?? ''}`);
 
-  const resetStripScroll = () => { if (scrollRef.current) scrollRef.current.scrollLeft = 0; };
-  const selectRoom = (key: string) => {
-    setRoomFilter(key);
-    resetStripScroll();
-  };
-  const changeRoomQuery = (v: string) => {
-    setRoomQuery(v);
-    resetStripScroll();
-  };
+  // The room filter can also change from outside the strip (the portrait's room badge).
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollLeft = 0;
+  }, [roomFilter, roomQuery]);
   const count = dwellers.length;
 
   const metrics = cardMetrics(useViewportHeight());
@@ -190,7 +187,7 @@ export function CharacterFooter() {
         <ExpandingSearch
           icon={<RoomIcon className="w-4 h-4" />}
           value={roomQuery}
-          onChange={changeRoomQuery}
+          onChange={setRoomQuery}
           placeholder="Search rooms…"
           label="Search rooms"
           openTitle="Search rooms"
@@ -213,7 +210,7 @@ export function CharacterFooter() {
         allLabel={roomSearching ? 'All matches' : 'All rooms'}
         unassignedCount={showUnassigned ? unassignedCount : 0}
         active={activeRoom}
-        onSelect={selectRoom}
+        onSelect={setRoomFilter}
         emptyMessage={roomSearching && matchingRooms.length === 0 && !showUnassigned
           ? `No rooms match “${roomQuery.trim()}”.`
           : undefined}

@@ -191,11 +191,13 @@ export function StashPanel() {
     <section className="mt-10" aria-labelledby="stash-heading">
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 mb-2">
         <h2 id="stash-heading" className="text-emerald-400 text-xl font-bold tracking-wide">Stash</h2>
-        <CapacityBar used={items.length} capacity={capacity} />
+        <div className="flex flex-col items-end gap-1">
+          <CapacityBar used={items.length} capacity={capacity} />
+          {full && <span className="text-red-400 text-xs">The stash is full; nothing more can be stashed.</span>}
+        </div>
       </div>
       <p className="text-zinc-500 text-xs mb-4">
         Items in the vault's storage. Capacity is 10 plus what your Storage rooms add.
-        {full && <span className="text-red-400"> The stash is full; nothing more can be stashed.</span>}
       </p>
 
       <div className="flex flex-wrap gap-2 mb-2" role="tablist">

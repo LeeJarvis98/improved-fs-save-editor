@@ -1,6 +1,7 @@
 import type { HTMLAttributes } from 'react';
 import { SpecialIcon } from './SpecialIcon';
-import { roomInfo, type RoomEntry } from '../lib/rooms';
+import { roomInfo, UNASSIGNED, type RoomEntry } from '../lib/rooms';
+import { useSaveStore } from '../store/saveStore';
 
 /** Room name, size/floor, what it does, and how full it is. Unpositioned. */
 export function RoomDetails({ room }: { room: RoomEntry | null }) {
@@ -50,7 +51,19 @@ export function RoomCard({ room, className = '', ...rest }: { room: RoomEntry | 
   );
 }
 
-/** Overlay shown in the top-left corner of the dweller portrait. */
+/** Overlay shown in the top-left corner of the dweller portrait; clicking it filters the dweller strip to this room. */
 export function RoomBadge({ room }: { room: RoomEntry | null }) {
-  return <RoomCard room={room} className="absolute top-1.5 left-1.5 max-w-[calc(100%-12px)]" data-testid="dweller-room" />;
+  const showRoom = useSaveStore((s) => s.showRoom);
+  return (
+    <button
+      type="button"
+      onClick={() => showRoom(room?.key ?? UNASSIGNED)}
+      aria-label={`Room: ${room?.name ?? 'Unassigned'}. Show dwellers in this room`}
+      title="Show dwellers in this room"
+      data-testid="dweller-room"
+      className="absolute top-1.5 left-1.5 max-w-[calc(100%-12px)] text-left rounded bg-zinc-900/90 border border-zinc-700 px-2.5 py-1.5 shadow-lg transition-colors hover:border-green-500 hover:bg-zinc-800/90 focus-visible:outline-none focus-visible:border-green-500"
+    >
+      <RoomDetails room={room} />
+    </button>
+  );
 }
