@@ -92,6 +92,7 @@ export function PetTab({ dweller: _dweller }: { dweller: RenderableDweller }) {
               key={pet.id}
               title={`${pet.name} (${pet.rarity})`}
               aria-pressed={isEquipped}
+              data-selected={isEquipped || undefined}
               onClick={() => guardSelect(() => useSaveStore.getState().updateSelectedDwellerRaw((d) => setPet(d, pet)))}
               className={[
                 'group relative rounded border flex flex-col items-center overflow-hidden transition-colors',

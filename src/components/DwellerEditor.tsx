@@ -11,6 +11,7 @@ import { OutfitTab } from './editor/OutfitTab';
 import { WeaponTab } from './editor/WeaponTab';
 import { PetTab } from './editor/PetTab';
 import { WeaponBadge } from './WeaponBadge';
+import { PetBadge } from './PetBadge';
 import { OutfitBadge } from './OutfitBadge';
 import { StatsTab } from './editor/StatsTab';
 import { OthersTab } from './editor/OthersTab';
@@ -75,6 +76,33 @@ export function DwellerEditor({
   const portrait = useElementSize(portraitRef);
   const portraitW = Math.floor(Math.min((portrait.height * 170) / 221, row.width * 0.4));
 
+  // Portrait badges open their tab and scroll the equipped tile into view. Tabs
+  // load their catalogs asynchronously, so wait for the tile to appear.
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [jumpRequest, setJumpRequest] = useState(0);
+  const jumpToSelected = (tab: string) => {
+    setActive(tab);
+    setJumpRequest((n) => n + 1);
+  };
+
+  useEffect(() => {
+    const container = contentRef.current;
+    if (!jumpRequest || !container) return;
+    const tryScroll = () => {
+      const el = container.querySelector<HTMLElement>('[data-selected]');
+      if (!el) return false;
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el.focus({ preventScroll: true });
+      return true;
+    };
+    if (tryScroll()) return;
+    const observer = new MutationObserver(() => { if (tryScroll()) cleanup(); });
+    const timeout = window.setTimeout(() => cleanup(), 3000);
+    const cleanup = () => { observer.disconnect(); window.clearTimeout(timeout); };
+    observer.observe(container, { childList: true, subtree: true });
+    return cleanup;
+  }, [jumpRequest]);
+
   return (
     <div ref={rowRef} className="flex gap-4 xl:gap-6 h-full min-h-0">
       {/* Left: character name + portrait (fills available height, capped so the editor keeps room on narrow windows) */}
@@ -88,8 +116,11 @@ export function DwellerEditor({
               <>
                 <DwellerCanvas dweller={dweller} fill />
                 <div className="absolute bottom-1.5 inset-x-1.5 flex flex-wrap items-end gap-1.5 pointer-events-none [&>*]:pointer-events-auto">
-                  <OutfitBadge dweller={dweller} onSelect={() => setActive('outfit')} />
-                  <WeaponBadge onSelect={() => setActive('weapon')} />
+                  <OutfitBadge dweller={dweller} onSelect={() => jumpToSelected('outfit')} />
+                  <div className="ml-auto max-w-full min-w-0 flex flex-col items-end gap-1.5 [&>*]:pointer-events-auto">
+                    <PetBadge onSelect={() => jumpToSelected('pet')} />
+                    <WeaponBadge onSelect={() => jumpToSelected('weapon')} />
+                  </div>
                 </div>
               </>
             )}
@@ -135,7 +166,7 @@ export function DwellerEditor({
             </div>
           </div>
         </div>
-        <div className="flex-1 min-w-0 min-h-0 overflow-y-auto">
+        <div ref={contentRef} className="flex-1 min-w-0 min-h-0 overflow-y-auto">
           {error && <div className="text-red-400 text-sm">Could not load pieces: {error}</div>}
           {index && activeTab === 'hair' && <HairTab index={index} dweller={dweller} onChange={onChange} />}
           {index && activeTab === 'face' && <FaceTab index={index} dweller={dweller} onChange={onChange} />}

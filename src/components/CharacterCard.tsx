@@ -1,5 +1,11 @@
+import { useEffect, useState } from 'react';
 import { useSaveStore } from '../store/saveStore';
 import { SpecialIcon } from './SpecialIcon';
+import { SpriteCrop } from './SpriteCrop';
+import { loadWeaponIndex, weaponById } from '../lib/weaponIndex';
+import { loadPetIndex } from '../lib/petIndex';
+import type { WeaponIndex } from '../types/weapons';
+import type { PetIndex } from '../types/pets';
 import { useDwellerThumbnail } from '../lib/useDwellerThumbnail';
 import { isChildDweller, childDwellerIds, type RenderableDweller } from '../lib/dwellerRender';
 import { decodeArgb } from '../lib/colors';
@@ -22,6 +28,40 @@ function toRenderable(d: Dweller, childIds: Set<number>): RenderableDweller {
     hairColor: decodeArgb(raw.hairColor),
     outfitColor: decodeArgb(raw.outfitColor),
   };
+}
+
+/** Equipped weapon (top-left) and pet (top-right) icons over the card avatar. */
+function GearIcons({ dweller, size }: { dweller: Dweller; size: number }) {
+  const [weapons, setWeapons] = useState<WeaponIndex | null>(null);
+  const [pets, setPets] = useState<PetIndex | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    loadWeaponIndex().then((idx) => { if (alive) setWeapons(idx); }).catch(() => {});
+    loadPetIndex().then((idx) => { if (alive) setPets(idx); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  const raw = dweller as unknown as { equipedWeapon?: { id?: string }; equippedPet?: { id?: string } };
+  const weapon = weapons && raw.equipedWeapon?.id ? weaponById(weapons, raw.equipedWeapon.id) : null;
+  const pet = pets && raw.equippedPet?.id ? pets.pets[raw.equippedPet.id] ?? null : null;
+  const chip = 'absolute top-1 rounded bg-black/60 flex items-center justify-center';
+  const box = { width: size + 4, height: size + 4 };
+
+  return (
+    <>
+      {weapon?.icon && (
+        <span className={`${chip} left-1`} style={box} title={weapon.name}>
+          <SpriteCrop rect={weapon.icon} size={size} />
+        </span>
+      )}
+      {pet?.icon && (
+        <span className={`${chip} right-1`} style={box} title={pet.name}>
+          <SpriteCrop rect={pet.icon} size={size} />
+        </span>
+      )}
+    </>
+  );
 }
 
 interface Props {
@@ -78,6 +118,7 @@ export function CharacterCard({ dweller, room, metrics }: Props) {
         ) : (
           <span className="text-zinc-600 text-xs">…</span>
         )}
+        {!renderable.isChild && <GearIcons dweller={dweller} size={Math.round(avatar * 0.2)} />}
         {room !== undefined && (
           <span
             title={room ? roomLabel(room.room, room.name) : 'Not assigned to a room'}

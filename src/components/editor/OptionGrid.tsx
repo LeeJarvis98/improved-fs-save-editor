@@ -85,6 +85,7 @@ export function OptionGrid({
           key={o.value}
           title={o.label}
           aria-pressed={o.value === selected}
+          data-selected={o.value === selected || undefined}
           onClick={() => onSelect(o.value)}
           className={
             cellClass +

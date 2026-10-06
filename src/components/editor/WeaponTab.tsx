@@ -81,6 +81,7 @@ export function WeaponTab({ dweller: _dweller }: { dweller: RenderableDweller })
               key={id}
               title={meta.name}
               aria-pressed={isEquipped}
+              data-selected={isEquipped || undefined}
               onClick={() => guardSelect(() => requestGearChange((d) => setWeapon(d, id)))}
               className={[
                 'group rounded border flex flex-col items-center overflow-hidden transition-colors',

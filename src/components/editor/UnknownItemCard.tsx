@@ -19,6 +19,7 @@ export function UnknownItemCard({
     <button
       type="button"
       aria-pressed={true}
+      data-selected
       title={`Unsupported item: ${id}`}
       onClick={onWarn}
       className="relative rounded border border-green-400 bg-green-950/40 ring-1 ring-green-400 flex flex-col items-center overflow-hidden"
