@@ -1,3 +1,5 @@
+import { fluidTileStyle } from './fluidGrid';
+
 /**
  * Pinned card shown at the front of a picker for an equipped item the editor
  * doesn't recognize. It is always "selected" (the item IS equipped) and never
@@ -20,7 +22,7 @@ export function UnknownItemCard({
       title={`Unsupported item: ${id}`}
       onClick={onWarn}
       className="relative rounded border border-green-400 bg-green-950/40 ring-1 ring-green-400 flex flex-col items-center overflow-hidden"
-      style={{ width, height }}
+      style={fluidTileStyle(width, height)}
     >
       {/* Warning badge, top-right */}
       <span

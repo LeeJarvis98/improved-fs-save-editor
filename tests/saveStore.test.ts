@@ -63,4 +63,13 @@ describe('saveStore raw/vault actions', () => {
     expect(st.save!.dwellers.dwellers).toHaveLength(0);
     expect(st.selectedDwellerId).toBeNull();
   });
+
+  it('removeDweller also removes the dweller from its room', () => {
+    const store = useSaveStore.getState();
+    const s = { ...sampleSave(), vault: { rooms: [{ type: 'Cafeteria', dwellers: [1, 7] }] } };
+    store.setSave(s, 'x.sav');
+    store.removeDweller(1);
+    const rooms = (useSaveStore.getState().save!.vault as any).rooms;
+    expect(rooms[0].dwellers).toEqual([7]);
+  });
 });

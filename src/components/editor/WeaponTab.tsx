@@ -8,6 +8,7 @@ import type { RenderableDweller } from '../../lib/dwellerRender';
 import { SortFilterBar } from './SortFilterBar';
 import { sortByDamage, filterByText, type SortDir } from '../../lib/pickerSort';
 import { UnknownItemCard } from './UnknownItemCard';
+import { fluidGridStyle, fluidTileStyle } from './fluidGrid';
 import { useUnknownItemGuard } from './UnknownItemModal';
 import { useFavorites, pinFavorites } from '../../lib/useFavorites';
 import { FavoriteToggle } from './FavoriteToggle';
@@ -66,8 +67,8 @@ export function WeaponTab({ dweller: _dweller }: { dweller: RenderableDweller })
         onDirChange={setDir}
       />
       <div
-        className="grid gap-1.5 p-1 justify-between"
-        style={{ gridTemplateColumns: 'repeat(auto-fill, 170px)' }}
+        className="grid gap-1.5 p-1"
+        style={fluidGridStyle(170, 0.9)}
       >
         {isUnknown && equippedId && (
           <UnknownItemCard id={equippedId} onWarn={openInfo} />
@@ -86,7 +87,7 @@ export function WeaponTab({ dweller: _dweller }: { dweller: RenderableDweller })
                   ? 'border-green-400 bg-green-950/40 ring-1 ring-green-400'
                   : 'border-zinc-700 bg-zinc-900 hover:border-zinc-500',
               ].join(' ')}
-              style={{ width: 170, height: 170, position: 'relative' }}
+              style={{ ...fluidTileStyle(170, 170), position: 'relative' }}
             >
               <FavoriteToggle
                 active={favorites.includes(id)}

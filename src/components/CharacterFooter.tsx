@@ -1,8 +1,11 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useMemo } from 'react';
 import { useSaveStore } from '../store/saveStore';
-import { CharacterCard, CARD_W, CARD_GAP } from './CharacterCard';
+import { CharacterCard, cardMetrics } from './CharacterCard';
+import { useViewportHeight } from '../lib/useViewportHeight';
 import { useWindowedRange } from '../lib/useWindowedRange';
 import { filterByText } from '../lib/pickerSort';
+import { buildRoomAssignments, getOccupiedRooms } from '../lib/rooms';
+import { RoomFilterBar, ALL_ROOMS, UNASSIGNED } from './RoomFilterBar';
 
 const OVERSCAN = 3;
 
@@ -45,11 +48,45 @@ export function CharacterFooter() {
   // Focus the field as it expands.
   useEffect(() => { if (open) inputRef.current?.focus(); }, [open]);
 
+  const [roomFilter, setRoomFilter] = useState<string>(ALL_ROOMS);
+
   const all = save?.dwellers.dwellers ?? [];
-  const dwellers = filterByText(all, query, (d) => `${d.name ?? ''} ${d.lastName ?? ''}`);
+  const { rooms, assignments, counts } = useMemo(() => {
+    const assignments = buildRoomAssignments(save);
+    const counts = new Map<string, number>();
+    for (const d of save?.dwellers.dwellers ?? []) {
+      const entry = assignments.get(d.serializeId);
+      if (entry) counts.set(entry.key, (counts.get(entry.key) ?? 0) + 1);
+    }
+    const rooms = getOccupiedRooms(save).filter((r) => counts.has(r.key));
+    return { rooms, assignments, counts };
+  }, [save]);
+  const unassignedCount = all.filter((d) => !assignments.has(d.serializeId)).length;
+
+  // Fall back to "All rooms" when the selected room empties out (e.g. after an eviction).
+  const activeRoom =
+    roomFilter === ALL_ROOMS || (roomFilter === UNASSIGNED && unassignedCount > 0) || counts.has(roomFilter)
+      ? roomFilter
+      : ALL_ROOMS;
+  const inRoom = activeRoom === ALL_ROOMS
+    ? all
+    : all.filter((d) => {
+        const entry = assignments.get(d.serializeId);
+        return activeRoom === UNASSIGNED ? !entry : entry?.key === activeRoom;
+      });
+  const dwellers = filterByText(inRoom, query, (d) => {
+    const entry = assignments.get(d.serializeId);
+    return `${d.name ?? ''} ${d.lastName ?? ''} ${entry ? entry.name : 'unassigned'}`;
+  });
+
+  const selectRoom = (key: string) => {
+    setRoomFilter(key);
+    scrollRef.current?.scrollTo({ left: 0 });
+  };
   const count = dwellers.length;
 
-  const { start, end } = useWindowedRange(scrollRef, CARD_W, count, OVERSCAN);
+  const metrics = cardMetrics(useViewportHeight());
+  const { start, end } = useWindowedRange(scrollRef, metrics.slot, count, OVERSCAN);
 
   if (!save) return null;
 
@@ -72,8 +109,8 @@ export function CharacterFooter() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filter by name…"
-            aria-label="Filter dwellers by name"
+            placeholder="Filter by name or room…"
+            aria-label="Filter dwellers by name or room"
             tabIndex={open ? 0 : -1}
             className="flex-1 min-w-0 h-8 bg-transparent px-2 text-sm text-zinc-100 placeholder-zinc-400 focus:outline-none"
           />
@@ -102,26 +139,35 @@ export function CharacterFooter() {
         </button>
       </div>
 
+      <RoomFilterBar
+        rooms={rooms}
+        counts={counts}
+        total={all.length}
+        unassignedCount={unassignedCount}
+        active={activeRoom}
+        onSelect={selectRoom}
+      />
+
       <div
         ref={scrollRef}
-        className="h-64 bg-zinc-900 border-t border-zinc-700 overflow-x-auto overflow-y-hidden"
-        style={{ position: 'relative' }}
+        className="bg-zinc-900 border-t border-zinc-800 overflow-x-auto overflow-y-hidden"
+        style={{ position: 'relative', height: metrics.strip }}
       >
         {count === 0 ? (
           <div className="absolute inset-0 flex items-center justify-center text-sm text-zinc-500">
-            No dwellers match “{query}”.
+            {query ? <>No dwellers match “{query}”.</> : 'No dwellers in this room.'}
           </div>
         ) : (
           /* Inner spacer to give the scrollbar the correct total width */
-          <div style={{ width: count * CARD_W, height: '100%', position: 'relative' }}>
+          <div style={{ width: count * metrics.slot, height: '100%', position: 'relative' }}>
             {dwellers.slice(start, end).map((dweller, localIdx) => {
               const globalIdx = start + localIdx;
               return (
                 <div
                   key={dweller.serializeId}
-                  style={{ position: 'absolute', left: globalIdx * CARD_W + CARD_GAP / 2, top: 8, height: 'calc(100% - 16px)' }}
+                  style={{ position: 'absolute', left: globalIdx * metrics.slot + metrics.gap / 2, top: 8, height: 'calc(100% - 16px)' }}
                 >
-                  <CharacterCard dweller={dweller} />
+                  <CharacterCard dweller={dweller} room={assignments.get(dweller.serializeId) ?? null} metrics={metrics} />
                 </div>
               );
             })}

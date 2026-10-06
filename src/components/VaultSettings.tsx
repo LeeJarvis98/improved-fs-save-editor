@@ -51,7 +51,7 @@ export function VaultSettings() {
   }
 
   return (
-    <div className="mt-8 p-2">
+    <div className="h-full overflow-y-auto pt-8 p-2">
       <h2 className="text-emerald-400 text-xl font-bold mb-6 tracking-wide">Vault Settings</h2>
 
       {vaultName && (
@@ -61,7 +61,7 @@ export function VaultSettings() {
         </div>
       )}
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         <div className="flex flex-col gap-1">
           <label htmlFor="vault-caps" className="text-zinc-400 text-sm">Caps</label>
           <input

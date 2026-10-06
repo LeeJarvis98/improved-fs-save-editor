@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { SaveJson, Dweller } from '../types/save';
 import { applyCustomization, createDwellerAtDoor, createLegendaryDweller, type DwellerCustomization, type NewDwellerInput } from '../lib/dwellerEdit';
 import type { LegendaryMeta } from '../types/legendary';
+import { unassignDweller } from '../lib/rooms';
 
 export type Page = 'vault' | 'dweller';
 
@@ -105,8 +106,9 @@ export const useSaveStore = create<SaveState>((set, get) => ({
     const nextSelected = selectedDwellerId === id
       ? (remaining[0]?.serializeId ?? null)
       : selectedDwellerId;
+    const unassigned = unassignDweller(save, id);
     return {
-      save: { ...save, dwellers: { ...save.dwellers, dwellers: remaining } },
+      save: { ...unassigned, dwellers: { ...save.dwellers, dwellers: remaining } },
       selectedDwellerId: nextSelected,
     };
   }),

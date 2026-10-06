@@ -9,6 +9,7 @@ import { SortFilterBar } from './SortFilterBar';
 import { filterByText } from '../../lib/pickerSort';
 import { type Rarity } from '../../lib/petRarity';
 import { UnknownItemCard } from './UnknownItemCard';
+import { fluidGridStyle, fluidTileStyle } from './fluidGrid';
 import { useUnknownItemGuard } from './UnknownItemModal';
 import { useFavorites, pinFavorites } from '../../lib/useFavorites';
 import { FavoriteToggle } from './FavoriteToggle';
@@ -64,7 +65,7 @@ export function PetTab({ dweller: _dweller }: { dweller: RenderableDweller }) {
         rarity={rarity}
         onRarityChange={setRarity}
       />
-      <div className="grid gap-1.5 p-1 justify-between" style={{ gridTemplateColumns: 'repeat(auto-fill, 170px)' }}>
+      <div className="grid gap-1.5 p-1" style={fluidGridStyle(170, 0.9)}>
         {/* Unknown equipped pet — pinned warning card (preserved on export). */}
         {isUnknown && equippedId && (
           <UnknownItemCard id={equippedId} onWarn={openInfo} />
@@ -79,7 +80,7 @@ export function PetTab({ dweller: _dweller }: { dweller: RenderableDweller }) {
             'rounded border flex flex-col items-center justify-center overflow-hidden transition-colors',
             !equippedId ? 'border-green-400 bg-green-950/40 ring-1 ring-green-400' : 'border-zinc-700 bg-zinc-900 hover:border-zinc-500',
           ].join(' ')}
-          style={{ width: 170, height: 170 }}
+          style={fluidTileStyle(170, 170)}
         >
           <span className="text-sm text-zinc-300">None</span>
         </button>
@@ -96,7 +97,7 @@ export function PetTab({ dweller: _dweller }: { dweller: RenderableDweller }) {
                 'group relative rounded border flex flex-col items-center overflow-hidden transition-colors',
                 isEquipped ? 'border-green-400 bg-green-950/40 ring-1 ring-green-400' : 'border-zinc-700 bg-zinc-900 hover:border-zinc-500',
               ].join(' ')}
-              style={{ width: 170, height: 170 }}
+              style={fluidTileStyle(170, 170)}
             >
               <FavoriteToggle active={favorites.includes(pet.id)} onToggle={() => toggle(pet.id)} />
               <div className="flex-1 flex items-center justify-center w-full">

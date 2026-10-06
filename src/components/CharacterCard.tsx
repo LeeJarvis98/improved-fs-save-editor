@@ -4,6 +4,7 @@ import { useDwellerThumbnail } from '../lib/useDwellerThumbnail';
 import { isChildDweller, childDwellerIds, type RenderableDweller } from '../lib/dwellerRender';
 import { decodeArgb } from '../lib/colors';
 import type { Dweller } from '../types/save';
+import { roomLabel, type RoomEntry } from '../lib/rooms';
 
 const SPECIAL_LABELS = ['S', 'P', 'E', 'C', 'I', 'A', 'L'] as const;
 
@@ -22,21 +23,42 @@ function toRenderable(d: Dweller, childIds: Set<number>): RenderableDweller {
   };
 }
 
-// Match the outfit-picker thumbnail cell size (see OptionGrid defaults: 170×221).
-export const AVATAR_SIZE = 170;
-// Tight card width (just the avatar + its own padding).
-export const CARD_INNER_W = AVATAR_SIZE + 8;
-// Empty space between neighboring cards, applied as margin (not padding) so the
-// card's own background/hover area stays tight to the avatar.
-export const CARD_GAP = 20;
-// Slot width consumed per card in the horizontal strip.
-export const CARD_W = CARD_INNER_W + CARD_GAP;
+export interface CardMetrics {
+  avatar: number;
+  /** Tight card width (just the avatar + its own padding). */
+  inner: number;
+  /** Empty space between neighboring cards, applied as margin so the hover area stays tight. */
+  gap: number;
+  /** Slot width consumed per card in the horizontal strip. */
+  slot: number;
+  /** Height of the scrolling strip that holds the cards. */
+  strip: number;
+  icon: number;
+  font: number;
+}
+
+/**
+ * Card sizing tiers by viewport height, so the footer strip doesn't crowd the
+ * editor on short windows. The largest tier matches the outfit-picker cell (170).
+ */
+export function cardMetrics(viewportH: number): CardMetrics {
+  const [avatar, gap, icon, font] =
+    viewportH >= 900 ? [170, 20, 18, 13]
+    : viewportH >= 760 ? [140, 16, 15, 12]
+    : [112, 12, 12, 10];
+  const inner = avatar + 8;
+  return { avatar, inner, gap, slot: inner + gap, strip: avatar + icon + font + 55, icon, font };
+}
 
 interface Props {
   dweller: Dweller;
+  /** The room this dweller is assigned to; null when unassigned. Omit to hide the badge. */
+  room?: RoomEntry | null;
+  metrics: CardMetrics;
 }
 
-export function CharacterCard({ dweller }: Props) {
+export function CharacterCard({ dweller, room, metrics }: Props) {
+  const { avatar, inner, icon, font } = metrics;
   const selectedId = useSaveStore((s) => s.selectedDwellerId);
   const selectDweller = useSaveStore((s) => s.selectDweller);
   const save = useSaveStore((s) => s.save);
@@ -51,20 +73,20 @@ export function CharacterCard({ dweller }: Props) {
       className={`flex flex-col items-center cursor-pointer select-none rounded px-1 py-1 transition-all ${
         isSelected ? 'ring-2 ring-green-400 bg-green-950/40' : 'hover:bg-zinc-800'
       }`}
-      style={{ width: CARD_INNER_W }}
+      style={{ width: inner }}
       onClick={() => selectDweller(dweller.serializeId)}
     >
       {/* SPECIAL row: 7-column grid spanning the full avatar width */}
       <div
         className="grid mb-1"
-        style={{ width: AVATAR_SIZE, gridTemplateColumns: 'repeat(7, 1fr)' }}
+        style={{ width: avatar, gridTemplateColumns: 'repeat(7, 1fr)' }}
       >
         {SPECIAL_LABELS.map((label, i) => {
           const val = stats?.[i + 1]?.value ?? '–';
           return (
             <span key={label} className="flex flex-col items-center leading-none">
-              <SpecialIcon letter={label} size={18} title={label} />
-              <span className="text-zinc-300 font-mono" style={{ fontSize: 13 }}>{val}</span>
+              <SpecialIcon letter={label} size={icon} title={label} />
+              <span className="text-zinc-300 font-mono" style={{ fontSize: font }}>{val}</span>
             </span>
           );
         })}
@@ -72,8 +94,8 @@ export function CharacterCard({ dweller }: Props) {
 
       {/* Avatar */}
       <div
-        className="bg-zinc-950 rounded border border-zinc-700 flex items-center justify-center overflow-hidden"
-        style={{ width: AVATAR_SIZE, height: AVATAR_SIZE, flexShrink: 0 }}
+        className="relative bg-zinc-950 rounded border border-zinc-700 flex items-center justify-center overflow-hidden"
+        style={{ width: avatar, height: avatar, flexShrink: 0 }}
       >
         {renderable.isChild ? (
           <span className="text-zinc-500 italic text-xs text-center px-2">Child</span>
@@ -82,10 +104,21 @@ export function CharacterCard({ dweller }: Props) {
         ) : (
           <span className="text-zinc-600 text-xs">…</span>
         )}
+        {room !== undefined && (
+          <span
+            title={room ? roomLabel(room.room, room.name) : 'Not assigned to a room'}
+            className={`absolute bottom-1 left-1 right-1 truncate rounded px-1.5 py-0.5 text-center leading-tight bg-black/70 ${
+              room ? 'text-emerald-300' : 'text-zinc-400 italic'
+            }`}
+            style={{ fontSize: Math.min(11, font) }}
+          >
+            {room ? room.name : 'Unassigned'}
+          </span>
+        )}
       </div>
 
       {/* Name */}
-      <div className="text-zinc-100 text-center leading-tight mt-1" style={{ fontSize: 12 }}>
+      <div className="w-full truncate text-zinc-100 text-center leading-tight mt-1" style={{ fontSize: Math.min(12, font) }}>
         {dweller.name} {dweller.lastName}
       </div>
     </div>

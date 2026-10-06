@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useElementSize } from '../lib/useElementSize';
 import { DwellerCanvas } from './DwellerCanvas';
 import { ChildAvatar } from './editor/ChildAvatar';
 import { EditorTabBar, type EditorTab } from './editor/EditorTabBar';
@@ -18,7 +19,16 @@ import type { RenderableDweller } from '../lib/dwellerRender';
 import { randomDwellerInput, type DwellerCustomization } from '../lib/dwellerEdit';
 import { LegendaryCatalogModal } from './LegendaryCatalogModal';
 
-export function DwellerEditor({ dweller, name }: { dweller: RenderableDweller; name?: string }) {
+export function DwellerEditor({
+  dweller,
+  name,
+  roomLabel,
+}: {
+  dweller: RenderableDweller;
+  name?: string;
+  /** Assigned room label; null means unassigned, undefined hides the line. */
+  roomLabel?: string | null;
+}) {
   const [active, setActive] = useState('hair');
   const [index, setIndex] = useState<SpriteIndex | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -54,20 +64,38 @@ export function DwellerEditor({ dweller, name }: { dweller: RenderableDweller; n
   // the default 'hair' for a child, or switching between a child and an adult).
   const activeTab = tabs.some((t) => t.id === active) ? active : tabs[0].id;
 
+  // Portrait width follows the available height at the portrait's 170:221
+  // ratio, but never takes more than 40% of the row.
+  const rowRef = useRef<HTMLDivElement>(null);
+  const portraitRef = useRef<HTMLDivElement>(null);
+  const row = useElementSize(rowRef);
+  const portrait = useElementSize(portraitRef);
+  const portraitW = Math.floor(Math.min((portrait.height * 170) / 221, row.width * 0.4));
+
   return (
-    <div className="flex gap-6 h-full min-h-0">
-      {/* Left: character name + portrait (fills available height) */}
-      <div className="flex-shrink-0 flex flex-col min-h-0">
-        {name && <div className="text-lg font-medium mb-2 truncate">{name}</div>}
-        <div className="flex-1 min-h-0 flex">
-          <div className="h-full relative" style={{ aspectRatio: '170 / 221' }}>
+    <div ref={rowRef} className="flex gap-4 xl:gap-6 h-full min-h-0">
+      {/* Left: character name + portrait (fills available height, capped so the editor keeps room on narrow windows) */}
+      <div className="flex-shrink-0 flex flex-col min-h-0 min-w-0" style={{ width: portraitW || undefined }}>
+        {name && <div className={`text-lg font-medium truncate ${roomLabel === undefined ? 'mb-2' : ''}`}>{name}</div>}
+        {roomLabel !== undefined && (
+          <div className="text-xs mb-2 truncate" data-testid="dweller-room">
+            <span className="text-zinc-500">Room: </span>
+            {roomLabel
+              ? <span className="text-emerald-300">{roomLabel}</span>
+              : <span className="text-zinc-400 italic">Unassigned</span>}
+          </div>
+        )}
+        <div ref={portraitRef} className="flex-1 min-h-0 flex">
+          <div className="h-full relative" style={portraitW ? { width: '100%' } : { aspectRatio: '170 / 221' }}>
             {isChild ? (
               <ChildAvatar />
             ) : (
               <>
                 <DwellerCanvas dweller={dweller} fill />
-                <OutfitBadge dweller={dweller} />
-                <WeaponBadge />
+                <div className="absolute bottom-1.5 inset-x-1.5 flex flex-wrap items-end gap-1.5 pointer-events-none [&>*]:pointer-events-auto">
+                  <OutfitBadge dweller={dweller} />
+                  <WeaponBadge />
+                </div>
               </>
             )}
           </div>
@@ -76,11 +104,14 @@ export function DwellerEditor({ dweller, name }: { dweller: RenderableDweller; n
 
       {/* Right: Chrome-style tab strip (with close button) above scrollable content */}
       <div className="flex flex-col flex-1 min-w-0 min-h-0">
-        <div className="flex items-end gap-2 border-b border-zinc-700">
-          <div className="flex-1 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* wrap-reverse: when space runs out the Add buttons wrap onto a row
+            above the tabs, so the tabs stay attached to the border. In this
+            mode items-start aligns to the bottom. */}
+        <div className="flex flex-wrap-reverse items-start gap-x-2 border-b border-zinc-700">
+          <div className="flex-[1_0_auto] max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <EditorTabBar tabs={tabs} active={activeTab} onSelect={setActive} />
           </div>
-          <div className="shrink-0 flex items-center gap-2.5 pb-1.5">
+          <div className="ml-auto shrink-0 flex items-center gap-2.5 pb-1.5 pt-1">
             <span className="text-xs font-semibold text-zinc-400 whitespace-nowrap">
               Add a Dweller
             </span>

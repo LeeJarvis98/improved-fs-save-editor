@@ -2,6 +2,7 @@ import React from 'react';
 import { SpriteCanvas, type SpriteLayer } from './SpriteCanvas';
 import { pinFavorites } from '../../lib/useFavorites';
 import { FavoriteToggle } from './FavoriteToggle';
+import { fluidGridStyle, fluidTileStyle } from './fluidGrid';
 
 export interface GridOption {
   value: string;
@@ -64,21 +65,19 @@ export function OptionGrid({
     (favEnabled ? 'group ' : '') +
     'rounded border overflow-hidden ' +
     (hasPortrait ? 'flex flex-col items-center ' : 'flex items-center justify-center ');
+  const colW = hasPortrait ? cellW ?? 170 : (cellW ?? 80);
   const cellStyle = hasPortrait
-    ? { width: cellW ?? 170, height: cellH ?? 268 }
+    ? fluidTileStyle(colW, cellH ?? 268)
     : hasSprite
-    ? { width: cellW ?? 80, height: cellH ?? 80 }
+    ? fluidTileStyle(colW, cellH ?? 80)
     : { minWidth: cellW ?? 80, minHeight: cellH ?? 48 };
 
-  // Column width drives an auto-filling responsive grid: as many fixed-width
-  // columns as fit, with the remaining space distributed evenly between them.
-  // This keeps every row (including the last) aligned to the same columns.
-  const colW = hasPortrait ? cellW ?? 170 : (cellW ?? 80);
-
+  // Columns stretch to fill the row. Sprite canvases are a fixed 72px, so
+  // sprite tiles never shrink below their design width.
   return (
     <div
-      className="grid gap-1.5 p-1 justify-between"
-      style={{ gridTemplateColumns: `repeat(auto-fill, ${colW}px)` }}
+      className="grid gap-1.5 p-1"
+      style={fluidGridStyle(colW, hasPortrait ? 0.8 : 1)}
     >
       {leading}
       {displayOptions.map((o) => (
