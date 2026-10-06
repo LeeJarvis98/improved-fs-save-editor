@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useElementSize } from '../lib/useElementSize';
+import { RoomBadge } from './RoomBadge';
+import type { RoomEntry } from '../lib/rooms';
 import { DwellerCanvas } from './DwellerCanvas';
 import { ChildAvatar } from './editor/ChildAvatar';
 import { EditorTabBar, type EditorTab } from './editor/EditorTabBar';
@@ -22,12 +24,12 @@ import { LegendaryCatalogModal } from './LegendaryCatalogModal';
 export function DwellerEditor({
   dweller,
   name,
-  roomLabel,
+  room,
 }: {
   dweller: RenderableDweller;
   name?: string;
-  /** Assigned room label; null means unassigned, undefined hides the line. */
-  roomLabel?: string | null;
+  /** Assigned room; null means unassigned, undefined hides the room badge. */
+  room?: RoomEntry | null;
 }) {
   const [active, setActive] = useState('hair');
   const [index, setIndex] = useState<SpriteIndex | null>(null);
@@ -76,15 +78,7 @@ export function DwellerEditor({
     <div ref={rowRef} className="flex gap-4 xl:gap-6 h-full min-h-0">
       {/* Left: character name + portrait (fills available height, capped so the editor keeps room on narrow windows) */}
       <div className="flex-shrink-0 flex flex-col min-h-0 min-w-0" style={{ width: portraitW || undefined }}>
-        {name && <div className={`text-lg font-medium truncate ${roomLabel === undefined ? 'mb-2' : ''}`}>{name}</div>}
-        {roomLabel !== undefined && (
-          <div className="text-xs mb-2 truncate" data-testid="dweller-room">
-            <span className="text-zinc-500">Room: </span>
-            {roomLabel
-              ? <span className="text-emerald-300">{roomLabel}</span>
-              : <span className="text-zinc-400 italic">Unassigned</span>}
-          </div>
-        )}
+        {name && <div className="text-lg font-medium mb-2 truncate">{name}</div>}
         <div ref={portraitRef} className="flex-1 min-h-0 flex">
           <div className="h-full relative" style={portraitW ? { width: '100%' } : { aspectRatio: '170 / 221' }}>
             {isChild ? (
@@ -93,11 +87,12 @@ export function DwellerEditor({
               <>
                 <DwellerCanvas dweller={dweller} fill />
                 <div className="absolute bottom-1.5 inset-x-1.5 flex flex-wrap items-end gap-1.5 pointer-events-none [&>*]:pointer-events-auto">
-                  <OutfitBadge dweller={dweller} />
-                  <WeaponBadge />
+                  <OutfitBadge dweller={dweller} onSelect={() => setActive('outfit')} />
+                  <WeaponBadge onSelect={() => setActive('weapon')} />
                 </div>
               </>
             )}
+            {room !== undefined && <RoomBadge room={room} />}
           </div>
         </div>
       </div>

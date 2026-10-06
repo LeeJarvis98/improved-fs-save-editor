@@ -82,4 +82,27 @@ describe('CharacterFooter', () => {
     const aliceCard = screen.getByText(/Alice Smith/i).closest('[class*="ring-green"]');
     expect(aliceCard).not.toBeNull();
   });
+
+  it('room search narrows both the room badges and the dwellers', () => {
+    const save = {
+      ...makeSave([dweller1, dweller2]),
+      vault: {
+        rooms: [
+          { type: 'Geothermal', row: 1, col: 0, deserializeID: 10, dwellers: [1] },
+          { type: 'Cafeteria', row: 2, col: 0, deserializeID: 11, dwellers: [2] },
+        ],
+      },
+    };
+    useSaveStore.setState({ save });
+    render(<CharacterFooter />);
+    fireEvent.click(screen.getByRole('button', { name: 'Search rooms' }));
+    fireEvent.change(screen.getByLabelText('Search rooms', { selector: 'input' }), { target: { value: 'gen' } });
+
+    const toolbar = screen.getByRole('toolbar', { name: /filter dwellers by room/i });
+    expect(toolbar).toHaveTextContent('All matches');
+    expect(toolbar).toHaveTextContent('Power Generator');
+    expect(toolbar).not.toHaveTextContent('Diner');
+    expect(screen.getByText(/Alice Smith/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Bob Jones/i)).not.toBeInTheDocument();
+  });
 });

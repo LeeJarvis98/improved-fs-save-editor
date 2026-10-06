@@ -19,8 +19,8 @@ export function StatsTab({ dweller: _dweller }: { dweller: RenderableDweller }) 
             const inputId = `special-${letter}`;
             return (
               <div key={letter} className="flex items-center gap-3">
-                <label htmlFor={inputId} className="flex items-center justify-center w-7" title={letter}>
-                  <SpecialIcon letter={letter} size={24} title={letter} />
+                <label htmlFor={inputId} className="flex items-center justify-center w-7">
+                  <SpecialIcon letter={letter} size={24} detail={`Current: ${value}/10`} />
                 </label>
                 <input
                   id={inputId}

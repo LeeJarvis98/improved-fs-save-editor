@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
-  getRooms, buildRoomAssignments, getOccupiedRooms, getDwellerRoom, roomDisplayName, roomLabel, unassignDweller,
+  getRooms, buildRoomAssignments, getOccupiedRooms, getDwellerRoom, roomDisplayName, roomLabel, roomInfo, unassignDweller,
 } from '../src/lib/rooms';
 
+const dwellers = (...ids: number[]) => ({ dwellers: ids.map((serializeId) => ({ serializeId })) });
+
 const save = () => ({
-  dwellers: { dwellers: [] },
+  dwellers: dwellers(3, 4, 14, 30),
   vault: {
     rooms: [
       { type: 'Elevator', class: 'Utility', mergeLevel: 1, level: 1, dwellers: [] },
@@ -30,7 +32,7 @@ describe('rooms', () => {
 
   it('keeps same-type rooms separate, lettered by floor then column', () => {
     const s = {
-      dwellers: { dwellers: [] },
+      dwellers: dwellers(1, 2, 3, 4, 5, 6),
       vault: {
         rooms: [
           { type: 'Geothermal', row: 5, col: 9, deserializeID: 11, dwellers: [1, 2] },
@@ -49,6 +51,19 @@ describe('rooms', () => {
     expect(buildRoomAssignments(s).get(1)?.name).toBe('Power Generator B');
   });
 
+  it('ignores room entries for dwellers that are not in the save', () => {
+    const s = {
+      dwellers: dwellers(1),
+      vault: {
+        rooms: [
+          { type: 'Cafeteria', deserializeID: 1, dwellers: [1, 50, 51] },
+          { type: 'MedBay', deserializeID: 2, dwellers: [60] },
+        ],
+      },
+    } as any;
+    expect(getOccupiedRooms(s).map((e) => [e.name, e.dwellerIds])).toEqual([['Diner', [1]]]);
+  });
+
   it('finds a single dweller room, or null when unassigned', () => {
     expect(getDwellerRoom(save(), 4)?.type).toBe('Cafeteria');
     expect(getDwellerRoom(save(), 99)).toBeNull();
@@ -63,6 +78,15 @@ describe('rooms', () => {
   it('labels with level and merge width', () => {
     expect(roomLabel({ type: 'Cafeteria', level: 3, mergeLevel: 3 })).toBe('Diner · Lv 3 · 3-wide');
     expect(roomLabel({ type: 'MedBay', level: 1, mergeLevel: 1 })).toBe('Medbay · Lv 1');
+  });
+
+  it('describes what a room does, its stat, work slots and floor', () => {
+    expect(roomInfo({ type: 'Cafeteria', class: 'Production', mergeLevel: 2, row: 4 })).toEqual({
+      role: 'Produces Food', stat: 'A', capacity: 4, floor: 5,
+    });
+    expect(roomInfo({ type: 'Casino', class: 'Training', mergeLevel: 3, row: 0 }).capacity).toBe(6);
+    expect(roomInfo({ type: 'LivingQuarters', class: 'Facility', mergeLevel: 3 }).capacity).toBeNull();
+    expect(roomInfo({ type: 'BarberShop', class: 'Training', mergeLevel: 2 }).capacity).toBeNull();
   });
 
   it('unassignDweller removes the id immutably', () => {

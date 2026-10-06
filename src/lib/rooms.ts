@@ -1,4 +1,4 @@
-import type { SaveJson } from '../types/save';
+import type { SaveJson, Special } from '../types/save';
 
 /**
  * A room in vault.rooms. The room's `dwellers` array holds the serializeIds of
@@ -49,10 +49,76 @@ const ROOM_NAMES: Record<string, string> = {
   DesignFactory: 'Theme Workshop',
 };
 
+// What each room type does, and the SPECIAL stat that drives it.
+const ROOM_ROLES: Record<string, { role: string; stat?: Special }> = {
+  Geothermal: { role: 'Produces Power', stat: 'S' },
+  Energy2: { role: 'Produces Power', stat: 'S' },
+  Cafeteria: { role: 'Produces Food', stat: 'A' },
+  Hydroponic: { role: 'Produces Food', stat: 'A' },
+  WaterPlant: { role: 'Produces Water', stat: 'P' },
+  Water2: { role: 'Produces Water', stat: 'P' },
+  NukaCola: { role: 'Produces Food & Water', stat: 'E' },
+  MedBay: { role: 'Produces Stimpaks', stat: 'I' },
+  ScienceLab: { role: 'Produces RadAway', stat: 'I' },
+  Radio: { role: 'Broadcasts to the Wasteland', stat: 'C' },
+  Gym: { role: 'Trains Strength', stat: 'S' },
+  Armory: { role: 'Trains Perception', stat: 'P' },
+  SuperRoom2: { role: 'Trains Endurance', stat: 'E' },
+  Bar: { role: 'Trains Charisma', stat: 'C' },
+  Classroom: { role: 'Trains Intelligence', stat: 'I' },
+  Dojo: { role: 'Trains Agility', stat: 'A' },
+  Casino: { role: 'Trains Luck', stat: 'L' },
+  LivingQuarters: { role: 'Living space', stat: 'C' },
+  Entrance: { role: 'Guards the vault door' },
+  Storage: { role: 'Stores items' },
+  Overseer: { role: 'Runs quests' },
+  BarberShop: { role: 'Changes looks' },
+  WeaponFactory: { role: 'Crafts weapons' },
+  OutfitFactory: { role: 'Crafts outfits' },
+  DesignFactory: { role: 'Crafts themes' },
+};
+
+const WORK_CLASSES = new Set(['Production', 'Consumable', 'Training']);
+
+export interface RoomInfo {
+  role: string | null;
+  stat: Special | null;
+  /** Work slots (2 per merged segment) for production, consumable, training and radio rooms; null otherwise. */
+  capacity: number | null;
+  /** 1-based floor, counted from the top. */
+  floor: number | null;
+}
+
+export function roomInfo(room: Room): RoomInfo {
+  const meta = ROOM_ROLES[room.type];
+  const works = (WORK_CLASSES.has(room.class ?? '') && room.type !== 'BarberShop') || room.type === 'Radio';
+  return {
+    role: meta?.role ?? null,
+    stat: meta?.stat ?? null,
+    capacity: works ? 2 * (room.mergeLevel ?? 1) : null,
+    floor: typeof room.row === 'number' ? room.row + 1 : null,
+  };
+}
+
+/** Display names of the rooms a SPECIAL stat works in and trains in. */
+export function roomsForStat(stat: Special): { work: string[]; training: string[] } {
+  const work: string[] = [];
+  const training: string[] = [];
+  for (const [type, meta] of Object.entries(ROOM_ROLES)) {
+    if (meta.stat !== stat) continue;
+    (meta.role.startsWith('Trains') ? training : work).push(ROOM_NAMES[type] ?? type);
+  }
+  return { work, training };
+}
+
 export function getRooms(s: SaveJson | null | undefined): Room[] {
   const rooms = (s?.vault as { rooms?: unknown } | undefined)?.rooms;
   return Array.isArray(rooms) ? (rooms as Room[]) : [];
 }
+
+/** Room-filter keys for "every room" and "no room", alongside the RoomEntry keys. */
+export const ALL_ROOMS = 'all';
+export const UNASSIGNED = 'unassigned';
 
 /** One occupied room instance, named so same-type rooms stay distinguishable. */
 export interface RoomEntry {
@@ -73,16 +139,22 @@ const letter = (i: number): string =>
  * that order.
  */
 export function getOccupiedRooms(s: SaveJson | null | undefined): RoomEntry[] {
+  // Rooms can list ids of dwellers no longer in the save; ignore those.
+  const known = new Set((s?.dwellers?.dwellers ?? []).map((d) => d.serializeId));
   const occupied = getRooms(s)
-    .map((room, i) => ({ room, i }))
-    .filter(({ room }) => Array.isArray(room.dwellers) && room.dwellers.length > 0)
+    .map((room, i) => ({
+      room,
+      i,
+      ids: Array.isArray(room.dwellers) ? room.dwellers.filter((id) => known.has(id)) : [],
+    }))
+    .filter(({ ids }) => ids.length > 0)
     .sort((a, b) => ((a.room.row ?? 0) - (b.room.row ?? 0)) || ((a.room.col ?? 0) - (b.room.col ?? 0)) || (a.i - b.i));
 
   const totals = new Map<string, number>();
   for (const { room } of occupied) totals.set(room.type, (totals.get(room.type) ?? 0) + 1);
   const seen = new Map<string, number>();
 
-  return occupied.map(({ room, i }) => {
+  return occupied.map(({ room, i, ids }) => {
     const n = seen.get(room.type) ?? 0;
     seen.set(room.type, n + 1);
     const base = roomDisplayName(room);
@@ -90,7 +162,7 @@ export function getOccupiedRooms(s: SaveJson | null | undefined): RoomEntry[] {
       key: typeof room.deserializeID === 'number' ? String(room.deserializeID) : `idx-${i}`,
       room,
       name: (totals.get(room.type) ?? 0) > 1 ? `${base} ${letter(n)}` : base,
-      dwellerIds: room.dwellers as number[],
+      dwellerIds: ids,
     };
   });
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SortDir, SpecialKey } from '../../lib/pickerSort';
 import { RARITIES, RARITY_DOT, type Rarity } from '../../lib/petRarity';
+import { specialName, specialTooltip } from '../../lib/special';
 
 const SPECIALS: SpecialKey[] = ['S', 'P', 'E', 'C', 'I', 'A', 'L'];
 
@@ -78,7 +79,8 @@ function StatCircle({ letter, selected, onClick }: { letter: SpecialKey; selecte
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      title={letter}
+      aria-label={specialName(letter)}
+      title={specialTooltip(letter, 'Click to show items that boost this stat')}
       className={[
         'w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold border transition-colors',
         selected

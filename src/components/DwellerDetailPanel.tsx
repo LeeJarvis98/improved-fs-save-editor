@@ -4,7 +4,7 @@ import { isChildDweller, childDwellerIds, type RenderableDweller } from '../lib/
 import type { Dweller } from '../types/save';
 import { decodeArgb } from '../lib/colors';
 import { randomDwellerInput } from '../lib/dwellerEdit';
-import { buildRoomAssignments, roomLabel } from '../lib/rooms';
+import { buildRoomAssignments } from '../lib/rooms';
 
 function toRenderable(d: Dweller, childIds: Set<number>): RenderableDweller {
   const raw = d as unknown as Record<string, any>;
@@ -45,7 +45,7 @@ export function DwellerDetailPanel() {
   const entry = buildRoomAssignments(save).get(dweller.serializeId);
   return (
     <div className="h-full min-h-0">
-      <DwellerEditor dweller={renderable} name={name} roomLabel={entry ? roomLabel(entry.room, entry.name) : null} />
+      <DwellerEditor dweller={renderable} name={name} room={entry ?? null} />
     </div>
   );
 }
