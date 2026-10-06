@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { SortDir, SpecialKey } from '../../lib/pickerSort';
 import { RARITIES, RARITY_DOT, type Rarity } from '../../lib/petRarity';
 import { specialName, specialTooltip } from '../../lib/special';
+import type { StashSort } from '../../lib/stash';
 
 const SPECIALS: SpecialKey[] = ['S', 'P', 'E', 'C', 'I', 'A', 'L'];
 
@@ -151,16 +152,29 @@ function SpecialFilter({ stat, onChange }: { stat: SpecialKey | null; onChange: 
   );
 }
 
+const dirOptions = (mode: 'weapon' | 'outfit'): { value: SortDir; label: string }[] => [
+  { value: 'default', label: 'Default' },
+  { value: 'desc', label: mode === 'weapon' ? 'Damage: high to low' : 'High to low' },
+  { value: 'asc', label: mode === 'weapon' ? 'Damage: low to high' : 'Low to high' },
+];
+
+const STASH_SORT_OPTIONS: { value: StashSort; label: string }[] = [
+  { value: 'default', label: 'Default' },
+  { value: 'name-asc', label: 'Name: A to Z' },
+  { value: 'name-desc', label: 'Name: Z to A' },
+  { value: 'count-desc', label: 'Quantity: high to low' },
+  { value: 'count-asc', label: 'Quantity: low to high' },
+];
+
 /** Custom (theme-styled) sort dropdown — replaces the native <select> options menu. */
-function SortMenu({ mode, dir, onChange }: { mode: 'weapon' | 'outfit'; dir: SortDir; onChange: (d: SortDir) => void }) {
+function SortMenu<T extends string>({ options, dir, onChange }: {
+  options: { value: T; label: string }[];
+  dir: T;
+  onChange: (d: T) => void;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useClickAway<HTMLDivElement>(open, () => setOpen(false));
 
-  const options: { value: SortDir; label: string }[] = [
-    { value: 'default', label: 'Default' },
-    { value: 'desc', label: mode === 'weapon' ? 'Damage: high to low' : 'High to low' },
-    { value: 'asc', label: mode === 'weapon' ? 'Damage: low to high' : 'Low to high' },
-  ];
   const current = options.find((o) => o.value === dir) ?? options[0];
 
   return (
@@ -270,13 +284,14 @@ function RarityMenu({ rarity, onChange }: { rarity: Rarity | null; onChange: (r:
 /**
  * Sticky control bar above a picker grid. Search applies to every mode; the
  * weapon/outfit modes add a sort menu (with a Default/no-sort option), the
- * outfit mode adds a SPECIAL filter popover, and the pet mode adds a rarity
- * filter. A Reset clears everything.
+ * outfit mode adds a SPECIAL filter popover, the pet mode adds a rarity
+ * filter, and the stash mode adds a name/quantity sort. A Reset clears everything.
  */
 export function SortFilterBar({
   mode, query, onQueryChange, onReset, dir, onDirChange, stat, onStatChange, rarity, onRarityChange,
+  stashSort, onStashSortChange,
 }: {
-  mode: 'weapon' | 'outfit' | 'pet';
+  mode: 'weapon' | 'outfit' | 'pet' | 'stash';
   query: string;
   onQueryChange: (q: string) => void;
   onReset: () => void;
@@ -289,6 +304,9 @@ export function SortFilterBar({
   /** pet mode only */
   rarity?: Rarity | null;
   onRarityChange?: (r: Rarity | null) => void;
+  /** stash mode only */
+  stashSort?: StashSort;
+  onStashSortChange?: (s: StashSort) => void;
 }) {
   return (
     <div className="sticky top-0 z-10 flex items-center gap-2 px-2 py-2 mb-2 bg-zinc-900 border-b border-zinc-700">
@@ -310,7 +328,11 @@ export function SortFilterBar({
       )}
 
       {(mode === 'weapon' || mode === 'outfit') && onDirChange && (
-        <SortMenu mode={mode} dir={dir ?? 'default'} onChange={onDirChange} />
+        <SortMenu options={dirOptions(mode)} dir={dir ?? 'default'} onChange={onDirChange} />
+      )}
+
+      {mode === 'stash' && onStashSortChange && (
+        <SortMenu options={STASH_SORT_OPTIONS} dir={stashSort ?? 'default'} onChange={onStashSortChange} />
       )}
 
       {mode === 'pet' && onRarityChange && (

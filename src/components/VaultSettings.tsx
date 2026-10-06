@@ -4,6 +4,7 @@ import {
   BOX_TYPES, type BoxType, getBoxCount, setBoxCount,
   getVaultMode, setVaultMode, type VaultMode,
 } from '../lib/vaultEdit';
+import { StashPanel } from './StashPanel';
 
 const RESOURCE_KEYS = ['Food', 'Energy', 'Water', 'StimPack', 'RadAway', 'NukaColaQuantum'] as const;
 
@@ -113,6 +114,8 @@ export function VaultSettings() {
           </div>
         ))}
       </div>
+
+      <StashPanel />
     </div>
   );
 }

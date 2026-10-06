@@ -3,6 +3,7 @@ import { useSaveStore } from '../../store/saveStore';
 import { setName, setPregnancy, setLevel, setGender, MIN_LEVEL, MAX_LEVEL } from '../../lib/dwellerEdit';
 import { ColorPalette } from './ColorPalette';
 import { ConfirmModal } from '../ConfirmModal';
+import { requestGearChange } from './GearSwapDialog';
 import { SKIN_PRESETS } from '../../lib/colorPresets';
 import type { RenderableDweller } from '../../lib/dwellerRender';
 import type { DwellerCustomization } from '../../lib/dwellerEdit';
@@ -74,7 +75,7 @@ export function OthersTab({
                   key={v}
                   type="button"
                   aria-pressed={dweller.gender === v}
-                  onClick={() => updateRaw((d) => setGender(d, v, index ?? undefined))}
+                  onClick={() => requestGearChange((d) => setGender(d, v, index ?? undefined))}
                   className={[
                     'px-3 py-1.5 rounded text-sm font-medium',
                     dweller.gender === v ? 'bg-green-600 text-white' : 'bg-zinc-700 text-zinc-200 hover:bg-zinc-600',
@@ -86,7 +87,7 @@ export function OthersTab({
             </div>
             <p className="text-zinc-500 text-xs">
               Changing gender re-derives gender-specific visuals. Outfits or hair with no art for the
-              new gender fall back to the default.
+              new gender fall back to the default (you'll be asked whether to stash the removed outfit).
             </p>
           </div>
 

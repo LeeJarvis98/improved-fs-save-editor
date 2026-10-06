@@ -3,8 +3,28 @@ import type { SaveJson, Dweller } from '../types/save';
 import { applyCustomization, createDwellerAtDoor, createLegendaryDweller, type DwellerCustomization, type NewDwellerInput } from '../lib/dwellerEdit';
 import type { LegendaryMeta } from '../types/legendary';
 import { unassignDweller } from '../lib/rooms';
+import { addStashItems, canStash, replacedGear } from '../lib/stash';
 
 export type Page = 'vault' | 'dweller';
+
+/**
+ * Apply `fn` to one dweller. With `stash`, any weapon or outfit the edit takes
+ * off the dweller (other than the default Fist / jumpsuit) is added to the vault
+ * stash; returns null when those items don't fit.
+ */
+function editDweller(
+  save: SaveJson, id: number, fn: (d: Dweller) => Dweller, stash = false,
+): SaveJson | null {
+  let removed: ReturnType<typeof replacedGear> = [];
+  const dwellers = save.dwellers.dwellers.map((d) => {
+    if (d.serializeId !== id) return d;
+    const next = fn(d);
+    if (stash) removed = replacedGear(d, next);
+    return next;
+  });
+  if (removed.length > 0 && !canStash(save, removed.length)) return null;
+  return addStashItems({ ...save, dwellers: { ...save.dwellers, dwellers } }, removed);
+}
 
 interface SaveState {
   save: SaveJson | null;
@@ -20,6 +40,12 @@ interface SaveState {
   getSelectedDweller: () => Dweller | null;
   updateSelectedDweller: (patch: DwellerCustomization) => void;
   updateSelectedDwellerRaw: (fn: (d: Dweller) => Dweller) => void;
+  /**
+   * Apply a gear-changing edit to the selected dweller. With `stash`, the
+   * weapon/outfit it removes goes to the vault stash (no-op if the stash is full);
+   * otherwise it is discarded.
+   */
+  swapSelectedGear: (fn: (d: Dweller) => Dweller, stash: boolean) => void;
   setVault: (fn: (s: SaveJson) => SaveJson) => void;
   /** Add a fresh dweller at the vault door; returns the new dweller's id (or null if no save). */
   addDweller: (input: NewDwellerInput) => number | null;
@@ -61,18 +87,18 @@ export const useSaveStore = create<SaveState>((set, get) => ({
   updateSelectedDweller: (patch) => set((state) => {
     const { save, selectedDwellerId } = state;
     if (!save || selectedDwellerId === null) return {};
-    const dwellers = save.dwellers.dwellers.map((d) =>
-      d.serializeId === selectedDwellerId ? applyCustomization(d, patch) : d,
-    );
-    return { save: { ...save, dwellers: { ...save.dwellers, dwellers } } };
+    return { save: editDweller(save, selectedDwellerId, (d) => applyCustomization(d, patch))! };
   }),
   updateSelectedDwellerRaw: (fn) => set((state) => {
     const { save, selectedDwellerId } = state;
     if (!save || selectedDwellerId === null) return {};
-    const dwellers = save.dwellers.dwellers.map((d) =>
-      d.serializeId === selectedDwellerId ? fn(d) : d,
-    );
-    return { save: { ...save, dwellers: { ...save.dwellers, dwellers } } };
+    return { save: editDweller(save, selectedDwellerId, fn)! };
+  }),
+  swapSelectedGear: (fn, stash) => set((state) => {
+    const { save, selectedDwellerId } = state;
+    if (!save || selectedDwellerId === null) return {};
+    const next = editDweller(save, selectedDwellerId, fn, stash);
+    return next ? { save: next } : {};
   }),
   setVault: (fn) => set((state) => (state.save ? { save: fn(state.save) } : {})),
   addDweller: (input) => {

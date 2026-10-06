@@ -12,6 +12,7 @@ import { fluidGridStyle, fluidTileStyle } from './fluidGrid';
 import { useUnknownItemGuard } from './UnknownItemModal';
 import { useFavorites, pinFavorites } from '../../lib/useFavorites';
 import { FavoriteToggle } from './FavoriteToggle';
+import { requestGearChange } from './GearSwapDialog';
 
 export function WeaponTab({ dweller: _dweller }: { dweller: RenderableDweller }) {
   const [weaponIndex, setWeaponIndex] = useState<WeaponIndex | null>(null);
@@ -80,7 +81,7 @@ export function WeaponTab({ dweller: _dweller }: { dweller: RenderableDweller })
               key={id}
               title={meta.name}
               aria-pressed={isEquipped}
-              onClick={() => guardSelect(() => useSaveStore.getState().updateSelectedDwellerRaw((d) => setWeapon(d, id)))}
+              onClick={() => guardSelect(() => requestGearChange((d) => setWeapon(d, id)))}
               className={[
                 'group rounded border flex flex-col items-center overflow-hidden transition-colors',
                 isEquipped

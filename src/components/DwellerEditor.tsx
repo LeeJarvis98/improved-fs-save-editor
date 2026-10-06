@@ -18,8 +18,9 @@ import { loadSpriteIndex } from '../lib/spriteIndex';
 import { useSaveStore } from '../store/saveStore';
 import type { SpriteIndex } from '../types/pieces';
 import type { RenderableDweller } from '../lib/dwellerRender';
-import { randomDwellerInput, type DwellerCustomization } from '../lib/dwellerEdit';
+import { randomDwellerInput, applyCustomization, type DwellerCustomization } from '../lib/dwellerEdit';
 import { LegendaryCatalogModal } from './LegendaryCatalogModal';
+import { GearSwapDialog, requestGearChange } from './editor/GearSwapDialog';
 
 export function DwellerEditor({
   dweller,
@@ -34,14 +35,14 @@ export function DwellerEditor({
   const [active, setActive] = useState('hair');
   const [index, setIndex] = useState<SpriteIndex | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const update = useSaveStore((s) => s.updateSelectedDweller);
   const addDweller = useSaveStore((s) => s.addDweller);
   const addLegendary = useSaveStore((s) => s.addLegendaryDweller);
   const [showLegendary, setShowLegendary] = useState(false);
 
   useEffect(() => { loadSpriteIndex().then(setIndex).catch((e) => setError(e.message)); }, []);
 
-  const onChange = (patch: DwellerCustomization) => update(patch);
+  const onChange = (patch: DwellerCustomization) =>
+    requestGearChange((d) => applyCustomization(d, patch));
 
   const isChild = !!dweller.isChild;
 
@@ -151,6 +152,7 @@ export function DwellerEditor({
           onClose={() => setShowLegendary(false)}
         />
       )}
+      <GearSwapDialog />
     </div>
   );
 }
