@@ -10,7 +10,10 @@ import { MAX_LEVEL, MAX_HEALTH } from '../lib/dwellerEdit';
 import {
   computeDwellerStats, maxHpAt, petBonusNote, BASE_HP, MAX_TOTAL_SPECIAL, WASTELAND_RAD_IMMUNE_END,
 } from '../lib/dwellerStats';
+import { getFamily, type RelativeRef } from '../lib/family';
 import { SpecialIcon } from './SpecialIcon';
+import { EditorTabBar } from './editor/EditorTabBar';
+import type { Dweller } from '../types/save';
 import type { SpriteIndex } from '../types/pieces';
 import type { WeaponIndex } from '../types/weapons';
 import type { PetIndex } from '../types/pets';
@@ -49,6 +52,102 @@ const Note = ({ children }: { children: ReactNode }) => (
   <p className="text-zinc-500 text-xs mt-2">{children}</p>
 );
 
+const fullNameOf = (d: Dweller) => `${d.name ?? ''} ${d.lastName ?? ''}`.trim() || `Dweller #${d.serializeId}`;
+
+/** A relative's name; clicking it switches the editor to that dweller. */
+function RelativeChip({ dweller, note }: { dweller: Dweller; note?: string }) {
+  const selectDweller = useSaveStore((s) => s.selectDweller);
+  const female = dweller.gender === 1;
+  return (
+    <button
+      type="button"
+      onClick={() => selectDweller(dweller.serializeId)}
+      title={`Show ${fullNameOf(dweller)}`}
+      className="inline-flex items-center gap-1.5 rounded border border-zinc-700 bg-zinc-800 px-2 py-0.5 text-sm text-zinc-100 hover:border-green-500 hover:text-green-400 transition-colors"
+    >
+      <span className={female ? 'text-pink-400' : 'text-sky-400'} aria-label={female ? 'female' : 'male'}>
+        {female ? '♀' : '♂'}
+      </span>
+      {fullNameOf(dweller)}
+      <span className="text-zinc-500 text-xs">Lv {dweller.experience?.currentLevel ?? 1}</span>
+      {note && <span className="text-zinc-500 text-xs">· {note}</span>}
+    </button>
+  );
+}
+
+function RefChip({ refValue }: { refValue: RelativeRef }) {
+  return refValue.kind === 'present'
+    ? <RelativeChip dweller={refValue.dweller} />
+    : <span className="text-sm italic text-zinc-500">No longer in the vault</span>;
+}
+
+function FamilyRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-start gap-3 py-1">
+      <span className="w-32 shrink-0 text-zinc-400 text-sm pt-0.5">{label}</span>
+      <div className="flex flex-wrap gap-1.5 min-w-0">{children}</div>
+    </div>
+  );
+}
+
+function FamilySection({ dwellerId }: { dwellerId: number }) {
+  const save = useSaveStore((s) => s.save);
+  const family = useMemo(() => (save ? getFamily(save, dwellerId) : null), [save, dwellerId]);
+  if (!family) return null;
+
+  const { father, mother, grandparents, partner, lastPartner, siblings, children, grandchildren, relationships } = family;
+  const empty = !father && !mother && grandparents.length === 0 && !partner && !lastPartner
+    && siblings.length === 0 && children.length === 0 && grandchildren.length === 0 && relationships.length === 0;
+
+  return (
+    <Section title="Family">
+      {empty ? (
+        <p className="text-zinc-500 text-sm">No family recorded for this dweller.</p>
+      ) : (
+        <>
+          {father && <FamilyRow label="Father"><RefChip refValue={father} /></FamilyRow>}
+          {mother && <FamilyRow label="Mother"><RefChip refValue={mother} /></FamilyRow>}
+          {grandparents.map(({ label, ref }) => (
+            <FamilyRow key={label} label={label}><RefChip refValue={ref} /></FamilyRow>
+          ))}
+          {partner && <FamilyRow label="Partner"><RefChip refValue={partner} /></FamilyRow>}
+          {lastPartner && <FamilyRow label="Last partner"><RefChip refValue={lastPartner} /></FamilyRow>}
+          {siblings.length > 0 && (
+            <FamilyRow label={`Siblings (${siblings.length})`}>
+              {siblings.map(({ dweller, half }) => (
+                <RelativeChip key={dweller.serializeId} dweller={dweller} note={half ? 'half' : undefined} />
+              ))}
+            </FamilyRow>
+          )}
+          {children.length > 0 && (
+            <FamilyRow label={`Children (${children.length})`}>
+              {children.map((d) => <RelativeChip key={d.serializeId} dweller={d} />)}
+            </FamilyRow>
+          )}
+          {grandchildren.length > 0 && (
+            <FamilyRow label={`Grandchildren (${grandchildren.length})`}>
+              {grandchildren.map((d) => <RelativeChip key={d.serializeId} dweller={d} />)}
+            </FamilyRow>
+          )}
+          {relationships.length > 0 && (
+            <FamilyRow label="Getting close to">
+              {relationships.map(({ ref, value }, i) => (
+                ref.kind === 'present'
+                  ? <RelativeChip key={i} dweller={ref.dweller} note={value !== null ? `level ${value}` : undefined} />
+                  : <RefChip key={i} refValue={ref} />
+              ))}
+            </FamilyRow>
+          )}
+        </>
+      )}
+      <Note>
+        Read-only. Click a name to open that dweller. Relatives the game no longer tracks by name (they left the
+        vault) show as "No longer in the vault". Related dwellers can't have children together.
+      </Note>
+    </Section>
+  );
+}
+
 /** Info button for the top-right corner of the dweller portrait; opens the stats panel. */
 export function DwellerStatsButton({ index }: { index: SpriteIndex | null }) {
   const [open, setOpen] = useState(false);
@@ -69,10 +168,17 @@ export function DwellerStatsButton({ index }: { index: SpriteIndex | null }) {
   );
 }
 
+type ModalTab = 'stats' | 'family';
+const MODAL_TABS: { id: ModalTab; label: string }[] = [
+  { id: 'stats', label: 'Stats' },
+  { id: 'family', label: 'Family' },
+];
+
 function DwellerStatsModal({ index, onClose }: { index: SpriteIndex | null; onClose: () => void }) {
   const dweller = useSaveStore((s) => s.getSelectedDweller());
   const [weapons, setWeapons] = useState<WeaponIndex | null>(null);
   const [pets, setPets] = useState<PetIndex | null>(null);
+  const [tab, setTab] = useState<ModalTab>('stats');
 
   useEffect(() => {
     let alive = true;
@@ -116,7 +222,7 @@ function DwellerStatsModal({ index, onClose }: { index: SpriteIndex | null; onCl
         aria-modal="true"
         aria-label="Dweller stats"
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-4xl max-h-[90vh] mx-4 flex flex-col rounded-lg bg-zinc-800 border border-zinc-700 shadow-xl"
+        className="w-full max-w-4xl h-[90vh] max-h-[880px] mx-4 flex flex-col rounded-lg bg-zinc-800 border border-zinc-700 shadow-xl"
       >
         <div className="flex items-start justify-between gap-4 p-5 pb-3">
           <div className="min-w-0">
@@ -134,129 +240,138 @@ function DwellerStatsModal({ index, onClose }: { index: SpriteIndex | null; onCl
           </button>
         </div>
 
-        <div className="overflow-y-auto px-5 pb-5 space-y-4">
-          <Section title="SPECIAL">
-            <table className="w-full text-sm" aria-label="SPECIAL breakdown">
-              <thead>
-                <tr className="text-[11px] uppercase tracking-wide text-zinc-500">
-                  <th className="w-8 font-normal text-left"><span className="sr-only">Stat</span></th>
-                  <th className="w-12 font-normal text-center">Base</th>
-                  <th className="w-14 font-normal text-center">Outfit</th>
-                  <th className="w-12 font-normal text-center">Total</th>
-                  <th className="font-normal text-left pl-3">Affects</th>
-                </tr>
-              </thead>
-              <tbody>
-                {special.map((s) => (
-                  <tr key={s.letter} className="align-top border-t border-zinc-800">
-                    <td className="py-1.5"><SpecialIcon letter={s.letter} size={22} /></td>
-                    <td className="py-1.5 text-center font-mono text-zinc-300">{s.base}</td>
-                    <td className={`py-1.5 text-center font-mono ${s.outfit ? 'text-sky-400' : 'text-zinc-600'}`}>
-                      {s.outfit ? `+${s.outfit}` : '—'}
-                    </td>
-                    <td className={`py-1.5 text-center font-mono font-semibold ${s.outfit ? 'text-sky-300' : 'text-zinc-100'}`}>
-                      {s.total}
-                    </td>
-                    <td className="py-1.5 pl-3 text-xs text-zinc-400 leading-snug">
-                      <span className="text-zinc-200">{specialName(s.letter)}</span>
-                      {s.rooms.length > 0 && <> · Works in {s.rooms.join(', ')}</>}
-                      <div>{s.effect}</div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <Note>
-              Training caps base SPECIAL at 10; outfits can push a stat up to {MAX_TOTAL_SPECIAL}.
-              Pets don't add SPECIAL to adults.
-            </Note>
-          </Section>
+        <div className="px-5 border-b border-zinc-600">
+          <EditorTabBar tabs={MODAL_TABS} active={tab} onSelect={(id) => setTab(id as ModalTab)} />
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Section title="Health">
-              <Row label="Health" value={`${fmt(hp.current)} / ${fmt(hp.max)}`} />
-              {hp.radiation > 0 && <Row label="Radiation" value={<span className="text-red-400">{fmt(hp.radiation)}</span>} />}
-              {petHp && (
-                <Row
-                  label={`Max HP with pet (+${fmt((hp.petMultiplier - 1) * 100)}%)`}
-                  value={<span className="text-amber-300">{fmt(hp.max * hp.petMultiplier)}</span>}
-                  hint="The pet's Health bonus only applies while it's equipped"
-                />
-              )}
-              <Row
-                label="HP per level-up"
-                value={`+${fmt(hp.perLevel)}`}
-                hint={`2.5 + 0.5 × Endurance ${hp.endurance} (${endRow.base} base${endRow.outfit ? ` + ${endRow.outfit} outfit` : ''})`}
-              />
-              {hp.levelsLeft > 0 && (
-                <Row
-                  label={`Max HP at level ${MAX_LEVEL} (projected)`}
-                  value={<>
-                    {fmt(hp.projectedMax)}
-                    {petHp && <span className="text-amber-300"> ({fmt(hp.projectedMax * hp.petMultiplier)})</span>}
-                  </>}
-                  hint={`${hp.levelsLeft} more level-ups at +${fmt(hp.perLevel)} each`}
-                />
-              )}
-              <Row
-                label={`Possible at level ${stats.level}`}
-                value={`${fmt(hp.minAtLevel)}–${fmt(hp.idealAtLevel)}`}
-                hint="Endurance 1 vs 17 at every level-up"
-              />
-              <Row
-                label="Wasteland radiation"
-                value={hp.radImmune
-                  ? <span className="text-emerald-400">Immune</span>
-                  : <span className="text-zinc-300">Needs END {WASTELAND_RAD_IMMUNE_END}+</span>}
-              />
-              <Note>
-                Dwellers start at {BASE_HP} HP and gain 2.5 + 0.5 × Endurance at each level-up (outfit included,
-                up to {MAX_TOTAL_SPECIAL}). It isn't retroactive, so raise Endurance before leveling: level {MAX_LEVEL} ranges
-                from {fmt(maxHpAt(MAX_LEVEL, 1))} HP (END 1) to {MAX_HEALTH} HP (END {MAX_TOTAL_SPECIAL}),
-                or {MAX_HEALTH * 2} HP with a +100% Health pet.
-              </Note>
-            </Section>
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4">
+          {tab === 'family' && <FamilySection dwellerId={dweller.serializeId} />}
+          {tab === 'stats' && (
+            <>
+              <Section title="SPECIAL">
+                <table className="w-full text-sm" aria-label="SPECIAL breakdown">
+                  <thead>
+                    <tr className="text-[11px] uppercase tracking-wide text-zinc-500">
+                      <th className="w-8 font-normal text-left"><span className="sr-only">Stat</span></th>
+                      <th className="w-12 font-normal text-center">Base</th>
+                      <th className="w-14 font-normal text-center">Outfit</th>
+                      <th className="w-12 font-normal text-center">Total</th>
+                      <th className="font-normal text-left pl-3">Affects</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {special.map((s) => (
+                      <tr key={s.letter} className="align-top border-t border-zinc-800">
+                        <td className="py-1.5"><SpecialIcon letter={s.letter} size={22} /></td>
+                        <td className="py-1.5 text-center font-mono text-zinc-300">{s.base}</td>
+                        <td className={`py-1.5 text-center font-mono ${s.outfit ? 'text-sky-400' : 'text-zinc-600'}`}>
+                          {s.outfit ? `+${s.outfit}` : '—'}
+                        </td>
+                        <td className={`py-1.5 text-center font-mono font-semibold ${s.outfit ? 'text-sky-300' : 'text-zinc-100'}`}>
+                          {s.total}
+                        </td>
+                        <td className="py-1.5 pl-3 text-xs text-zinc-400 leading-snug">
+                          <span className="text-zinc-200">{specialName(s.letter)}</span>
+                          {s.rooms.length > 0 && <> · Works in {s.rooms.join(', ')}</>}
+                          <div>{s.effect}</div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <Note>
+                  Training caps base SPECIAL at 10; outfits can push a stat up to {MAX_TOTAL_SPECIAL}.
+                  Pets don't add SPECIAL to adults.
+                </Note>
+              </Section>
 
-            <Section title="Combat">
-              {weapon ? (
-                <>
-                  <Row label="Weapon" value={weapon.name} />
-                  <Row label="Weapon damage" value={`${weapon.min}–${weapon.max}`} />
-                  {stats.petDamage > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Section title="Health">
+                  <Row label="Health" value={`${fmt(hp.current)} / ${fmt(hp.max)}`} />
+                  {hp.radiation > 0 && <Row label="Radiation" value={<span className="text-red-400">{fmt(hp.radiation)}</span>} />}
+                  {petHp && (
                     <Row
-                      label={`With pet (+${fmt(stats.petDamage)})`}
-                      value={<span className="text-amber-300">{fmt(weapon.min + stats.petDamage)}–{fmt(weapon.max + stats.petDamage)}</span>}
+                      label={`Max HP with pet (+${fmt((hp.petMultiplier - 1) * 100)}%)`}
+                      value={<span className="text-amber-300">{fmt(hp.max * hp.petMultiplier)}</span>}
+                      hint="The pet's Health bonus only applies while it's equipped"
                     />
                   )}
-                </>
-              ) : (
-                <Row label="Weapon" value="None" />
-              )}
-              {stats.petResistance > 0 && (
-                <Row label="Damage resistance (pet)" value={<span className="text-amber-300">{fmt(stats.petResistance)}%</span>} />
-              )}
-              <Row label="Strength (attack)" value={special[0].total} />
-              <Row label="Agility (fire rate)" value={special[5].total} />
-              <Row label="Perception (crit arrow)" value={special[1].total} />
-              <Row label="Luck (crit meter)" value={special[6].total} />
-              <Note>
-                In quests, Agility raises fire rate, Perception slows the critical-hit arrow and Luck fills the
-                critical meter faster.
-              </Note>
-            </Section>
-          </div>
+                  <Row
+                    label="HP per level-up"
+                    value={`+${fmt(hp.perLevel)}`}
+                    hint={`2.5 + 0.5 × Endurance ${hp.endurance} (${endRow.base} base${endRow.outfit ? ` + ${endRow.outfit} outfit` : ''})`}
+                  />
+                  {hp.levelsLeft > 0 && (
+                    <Row
+                      label={`Max HP at level ${MAX_LEVEL} (projected)`}
+                      value={<>
+                        {fmt(hp.projectedMax)}
+                        {petHp && <span className="text-amber-300"> ({fmt(hp.projectedMax * hp.petMultiplier)})</span>}
+                      </>}
+                      hint={`${hp.levelsLeft} more level-ups at +${fmt(hp.perLevel)} each`}
+                    />
+                  )}
+                  <Row
+                    label={`Possible at level ${stats.level}`}
+                    value={`${fmt(hp.minAtLevel)}–${fmt(hp.idealAtLevel)}`}
+                    hint="Endurance 1 vs 17 at every level-up"
+                  />
+                  <Row
+                    label="Wasteland radiation"
+                    value={hp.radImmune
+                      ? <span className="text-emerald-400">Immune</span>
+                      : <span className="text-zinc-300">Needs END {WASTELAND_RAD_IMMUNE_END}+</span>}
+                  />
+                  <Note>
+                    Dwellers start at {BASE_HP} HP and gain 2.5 + 0.5 × Endurance at each level-up (outfit included,
+                    up to {MAX_TOTAL_SPECIAL}). It isn't retroactive, so raise Endurance before leveling: level {MAX_LEVEL} ranges
+                    from {fmt(maxHpAt(MAX_LEVEL, 1))} HP (END 1) to {MAX_HEALTH} HP (END {MAX_TOTAL_SPECIAL}),
+                    or {MAX_HEALTH * 2} HP with a +100% Health pet.
+                  </Note>
+                </Section>
 
-          <Section title="Pet">
-            {pet ? (
-              <>
-                <Row label="Pet" value={pet.name} />
-                <Row label="Bonus" value={<span className="text-amber-300">{pet.label}</span>} />
-                {petBonusNote(pet.bonus) && <Note>{petBonusNote(pet.bonus)}</Note>}
-              </>
-            ) : (
-              <p className="text-zinc-500 text-sm">No pet equipped.</p>
-            )}
-          </Section>
+                <Section title="Combat">
+                  {weapon ? (
+                    <>
+                      <Row label="Weapon" value={weapon.name} />
+                      <Row label="Weapon damage" value={`${weapon.min}–${weapon.max}`} />
+                      {stats.petDamage > 0 && (
+                        <Row
+                          label={`With pet (+${fmt(stats.petDamage)})`}
+                          value={<span className="text-amber-300">{fmt(weapon.min + stats.petDamage)}–{fmt(weapon.max + stats.petDamage)}</span>}
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <Row label="Weapon" value="None" />
+                  )}
+                  {stats.petResistance > 0 && (
+                    <Row label="Damage resistance (pet)" value={<span className="text-amber-300">{fmt(stats.petResistance)}%</span>} />
+                  )}
+                  <Row label="Strength (attack)" value={special[0].total} />
+                  <Row label="Agility (fire rate)" value={special[5].total} />
+                  <Row label="Perception (crit arrow)" value={special[1].total} />
+                  <Row label="Luck (crit meter)" value={special[6].total} />
+                  <Note>
+                    In quests, Agility raises fire rate, Perception slows the critical-hit arrow and Luck fills the
+                    critical meter faster.
+                  </Note>
+                </Section>
+              </div>
+
+              <Section title="Pet">
+                {pet ? (
+                  <>
+                    <Row label="Pet" value={pet.name} />
+                    <Row label="Bonus" value={<span className="text-amber-300">{pet.label}</span>} />
+                    {petBonusNote(pet.bonus) && <Note>{petBonusNote(pet.bonus)}</Note>}
+                  </>
+                ) : (
+                  <p className="text-zinc-500 text-sm">No pet equipped.</p>
+                )}
+              </Section>
+            </>
+          )}
         </div>
       </div>
     </div>,
