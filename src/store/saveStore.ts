@@ -3,7 +3,7 @@ import type { SaveJson, Dweller } from '../types/save';
 import { applyCustomization, createDwellerAtDoor, createLegendaryDweller, type DwellerCustomization, type NewDwellerInput } from '../lib/dwellerEdit';
 import type { LegendaryMeta } from '../types/legendary';
 import { unassignDweller, ALL_ROOMS } from '../lib/rooms';
-import { addStashItems, canStash, equipFromStash, replacedGear } from '../lib/stash';
+import { addStashItems, canStash, equipFromStash, equippedGear, replacedGear } from '../lib/stash';
 import { petLimitError } from '../lib/petLimits';
 
 export type Page = 'vault' | 'dweller';
@@ -66,8 +66,12 @@ interface SaveState {
   addDweller: (input: NewDwellerInput) => number | null;
   /** Add a legendary dweller from a roster entry; returns the new id (or null if no save). */
   addLegendaryDweller: (entry: LegendaryMeta) => number | null;
-  /** Evict (permanently remove) a dweller. If it was selected, selection moves to the first remaining dweller. */
-  removeDweller: (id: number) => void;
+  /**
+   * Evict (permanently remove) a dweller. If it was selected, selection moves to the
+   * first remaining dweller. With `stashGear`, its equipped weapon, outfit and pet
+   * go to the vault stash (no-op if they don't all fit); otherwise they're discarded.
+   */
+  removeDweller: (id: number, opts?: { stashGear?: boolean }) => void;
   clear: () => void;
 }
 
@@ -151,16 +155,19 @@ export const useSaveStore = create<SaveState>((set, get) => ({
     });
     return dweller.serializeId;
   },
-  removeDweller: (id) => set((state) => {
+  removeDweller: (id, opts) => set((state) => {
     const { save, selectedDwellerId } = state;
     if (!save) return {};
+    const evicted = save.dwellers.dwellers.find((d) => d.serializeId === id);
+    const gear = opts?.stashGear && evicted ? equippedGear(evicted) : [];
+    if (gear.length > 0 && !canStash(save, gear.length)) return {};
     const remaining = save.dwellers.dwellers.filter((d) => d.serializeId !== id);
     const nextSelected = selectedDwellerId === id
       ? (remaining[0]?.serializeId ?? null)
       : selectedDwellerId;
     const unassigned = unassignDweller(save, id);
     return {
-      save: { ...unassigned, dwellers: { ...save.dwellers, dwellers: remaining } },
+      save: addStashItems({ ...unassigned, dwellers: { ...save.dwellers, dwellers: remaining } }, gear),
       selectedDwellerId: nextSelected,
     };
   }),

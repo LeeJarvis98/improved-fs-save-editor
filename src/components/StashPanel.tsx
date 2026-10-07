@@ -193,7 +193,7 @@ export function StashPanel() {
   const resetPage = <T,>(fn: (v: T) => void) => (v: T) => { fn(v); setPage(0); };
 
   return (
-    <section className="mt-10" aria-labelledby="stash-heading">
+    <section aria-labelledby="stash-heading">
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 mb-2">
         <h2 id="stash-heading" className="text-emerald-400 text-xl font-bold tracking-wide">Stash</h2>
         <div className="flex flex-col items-end gap-1">

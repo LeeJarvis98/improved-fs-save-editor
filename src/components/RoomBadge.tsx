@@ -61,7 +61,7 @@ export function RoomBadge({ room }: { room: RoomEntry | null }) {
       aria-label={`Room: ${room?.name ?? 'Unassigned'}. Show dwellers in this room`}
       title="Show dwellers in this room"
       data-testid="dweller-room"
-      className="absolute top-1.5 left-1.5 max-w-[calc(100%-12px)] text-left rounded bg-zinc-900/90 border border-zinc-700 px-2.5 py-1.5 shadow-lg transition-colors hover:border-green-500 hover:bg-zinc-800/90 focus-visible:outline-none focus-visible:border-green-500"
+      className="absolute top-1.5 left-1.5 max-w-[calc(100%-68px)] text-left rounded bg-zinc-900/90 border border-zinc-700 px-2.5 py-1.5 shadow-lg transition-colors hover:border-green-500 hover:bg-zinc-800/90 focus-visible:outline-none focus-visible:border-green-500"
     >
       <RoomDetails room={room} />
     </button>

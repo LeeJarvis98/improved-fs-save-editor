@@ -13,8 +13,9 @@ import { PetTab } from './editor/PetTab';
 import { WeaponBadge } from './WeaponBadge';
 import { PetBadge } from './PetBadge';
 import { OutfitBadge } from './OutfitBadge';
+import { DwellerStatsButton } from './DwellerStatsPanel';
 import { StatsTab } from './editor/StatsTab';
-import { OthersTab } from './editor/OthersTab';
+import { AttributesTab } from './editor/AttributesTab';
 import { loadSpriteIndex } from '../lib/spriteIndex';
 import { useSaveStore } from '../store/saveStore';
 import type { SpriteIndex } from '../types/pieces';
@@ -47,12 +48,12 @@ export function DwellerEditor({
 
   const isChild = !!dweller.isChild;
 
-  // Children get only SPECIAL and a reduced Others tab; everything that needs a
+  // Children get only SPECIAL and a reduced Attributes tab; everything that needs a
   // rendered model (hair/outfit/weapon/pet/face) is hidden.
   const tabs: EditorTab[] = isChild
     ? [
         { id: 'stats', label: 'SPECIAL' },
-        { id: 'others', label: 'Others' },
+        { id: 'attributes', label: 'Attributes' },
       ]
     : [
         { id: 'hair', label: 'Hair' },
@@ -61,7 +62,7 @@ export function DwellerEditor({
         { id: 'weapon', label: 'Weapon' },
         { id: 'pet', label: 'Pet' },
         { id: 'stats', label: 'SPECIAL' },
-        { id: 'others', label: 'Others' },
+        { id: 'attributes', label: 'Attributes' },
       ];
 
   // Fall back to the first available tab when the current one isn't offered (e.g.
@@ -125,6 +126,7 @@ export function DwellerEditor({
               </>
             )}
             {room !== undefined && <RoomBadge room={room} />}
+            <DwellerStatsButton index={index} />
           </div>
         </div>
       </div>
@@ -174,7 +176,7 @@ export function DwellerEditor({
           {activeTab === 'weapon' && <WeaponTab dweller={dweller} />}
           {activeTab === 'pet' && <PetTab dweller={dweller} />}
           {activeTab === 'stats' && <StatsTab dweller={dweller} />}
-          {activeTab === 'others' && <OthersTab dweller={dweller} onChange={onChange} index={index} />}
+          {activeTab === 'attributes' && <AttributesTab dweller={dweller} onChange={onChange} index={index} />}
         </div>
       </div>
       {showLegendary && (

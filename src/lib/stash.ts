@@ -83,6 +83,16 @@ type GearSlot = (typeof GEAR_SLOTS)[number];
 
 const equippedIn = (d: Dweller, slot: GearSlot) => d[slot] as EquipRef | undefined;
 
+/** The weapon, outfit and pet a dweller has equipped, excluding the default Fist / jumpsuit. */
+export function equippedGear(d: Dweller): StashItem[] {
+  const out: StashItem[] = [];
+  for (const slot of GEAR_SLOTS) {
+    const ref = equippedIn(d, slot);
+    if (ref && typeof ref.id === 'string' && !isDefaultGear(ref)) out.push({ ...ref });
+  }
+  return out;
+}
+
 /** Same item: same id and the same extraData (a pet's name and bonus). */
 const sameItem = (a: EquipRef, b: EquipRef | undefined) =>
   !!b && a.id === b.id && JSON.stringify(a.extraData ?? null) === JSON.stringify(b.extraData ?? null);
