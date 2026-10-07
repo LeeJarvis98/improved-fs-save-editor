@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { create } from 'zustand';
-import { useSaveStore } from '../../store/saveStore';
+import { editDweller, useSaveStore } from '../../store/saveStore';
 import { canStash, getStashItems, replacedGear, stashCapacity, type StashItem } from '../../lib/stash';
+import { petLimitError } from '../../lib/petLimits';
 import { describeStashItem, useItemCatalogs } from '../StashItemInfo';
 import type { Dweller } from '../../types/save';
 
@@ -31,6 +32,7 @@ export function requestGearChange(fn: (d: Dweller) => Dweller): void {
 export function GearSwapDialog() {
   const pending = usePendingSwap((s) => s.pending);
   const save = useSaveStore((s) => s.save);
+  const dwellerId = useSaveStore((s) => s.selectedDwellerId);
   const swap = useSaveStore((s) => s.swapSelectedGear);
   const catalogs = useItemCatalogs();
 
@@ -43,11 +45,17 @@ export function GearSwapDialog() {
     return () => window.removeEventListener('keydown', onKey);
   }, [pending]);
 
-  if (!pending || !save) return null;
+  if (!pending || !save || dwellerId === null) return null;
 
   const used = getStashItems(save).length;
   const capacity = stashCapacity(save);
   const fits = canStash(save, pending.removed.length);
+  const petError = (stash: boolean) => {
+    const next = editDweller(save, dwellerId, pending.fn, stash);
+    return next ? petLimitError(save, next) : null;
+  };
+  const stashPetError = fits ? petError(true) : null;
+  const discardPetError = petError(false);
   const names = pending.removed.map((it) => describeStashItem(it, catalogs).name);
   const apply = (stash: boolean) => { swap(pending.fn, stash); close(); };
 
@@ -75,11 +83,16 @@ export function GearSwapDialog() {
           ))}
           . Move it to the vault stash, or discard it?
         </p>
-        <p className={`text-xs mb-5 ${fits ? 'text-zinc-500' : 'text-amber-400'}`}>
-          {fits
-            ? `Stash: ${used} / ${capacity} used.`
-            : `The stash is full (${used} / ${capacity}). Free up space in Vault Settings, or discard the item.`}
+        <p className={`text-xs mb-5 ${fits && !stashPetError ? 'text-zinc-500' : 'text-amber-400'}`}>
+          {!fits
+            ? `The stash is full (${used} / ${capacity}). Free up space in Vault Settings, or discard the item.`
+            : stashPetError
+              ? `${stashPetError} Discard the old pet instead.`
+              : `Stash: ${used} / ${capacity} used.`}
         </p>
+        {discardPetError && (
+          <p className="text-xs text-amber-400 -mt-3 mb-5">{discardPetError}</p>
+        )}
         <div className="flex justify-end gap-2">
           <button
             type="button"
@@ -91,14 +104,15 @@ export function GearSwapDialog() {
           <button
             type="button"
             onClick={() => apply(false)}
-            className="px-3 py-1.5 rounded text-sm font-medium bg-red-600 hover:bg-red-500 text-white"
+            disabled={!!discardPetError}
+            className="px-3 py-1.5 rounded text-sm font-medium bg-red-600 hover:bg-red-500 text-white disabled:opacity-40 disabled:hover:bg-red-600 disabled:cursor-not-allowed"
           >
             Discard
           </button>
           <button
             type="button"
             onClick={() => apply(true)}
-            disabled={!fits}
+            disabled={!fits || !!stashPetError}
             className="px-3 py-1.5 rounded text-sm font-medium bg-green-600 hover:bg-green-500 text-white disabled:opacity-40 disabled:hover:bg-green-600 disabled:cursor-not-allowed"
           >
             Stash

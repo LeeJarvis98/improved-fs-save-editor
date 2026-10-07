@@ -5,6 +5,7 @@ import {
   stashCapacity, type StashGroup, type StashSort,
 } from '../lib/stash';
 import { filterByText } from '../lib/pickerSort';
+import { VAULT_PETS_FULL, vaultHasPetRoom } from '../lib/petLimits';
 import { SortFilterBar } from './editor/SortFilterBar';
 import { fluidGridStyle, fluidTileStyle } from './editor/fluidGrid';
 import {
@@ -103,11 +104,12 @@ function Pagination({ page, pageCount, from, to, total, onPage }: {
 const TILE_W = 170;
 const TILE_H = 250;
 
-function StashTile({ group, display, catalogs, full, onAdd, onRemove, onRemoveAll }: {
+function StashTile({ group, display, catalogs, addBlocked, onAdd, onRemove, onRemoveAll }: {
   group: StashGroup;
   display: ItemDisplay;
   catalogs: ItemCatalogs;
-  full: boolean;
+  /** Why another copy can't be added (stash or vault pet limit reached), or null. */
+  addBlocked: string | null;
   onAdd: () => void;
   onRemove: () => void;
   onRemoveAll: () => void;
@@ -147,8 +149,8 @@ function StashTile({ group, display, catalogs, full, onAdd, onRemove, onRemoveAl
           className={`${btn} hover:bg-zinc-700`}>
           −
         </button>
-        <button type="button" onClick={onAdd} disabled={full} aria-label={`Add one ${name}`}
-          title={full ? 'Stash is full' : 'Add one'}
+        <button type="button" onClick={onAdd} disabled={!!addBlocked} aria-label={`Add one ${name}`}
+          title={addBlocked ?? 'Add one'}
           className={`${btn} hover:bg-green-600 disabled:opacity-40 disabled:hover:bg-zinc-800 disabled:cursor-not-allowed`}>
           +
         </button>
@@ -171,6 +173,9 @@ export function StashPanel() {
   const items = getStashItems(save);
   const capacity = stashCapacity(save);
   const full = items.length >= capacity;
+  const petsFull = !vaultHasPetRoom(save);
+  const addBlocked = (g: StashGroup) =>
+    full ? 'Stash is full' : petsFull && g.item.type === 'Pet' ? VAULT_PETS_FULL : null;
 
   const displays = new Map<string, ItemDisplay>();
   const groups = groupStash(items);
@@ -194,6 +199,7 @@ export function StashPanel() {
         <div className="flex flex-col items-end gap-1">
           <CapacityBar used={items.length} capacity={capacity} />
           {full && <span className="text-red-400 text-xs">The stash is full; nothing more can be stashed.</span>}
+          {!full && petsFull && <span className="text-amber-400 text-xs">{VAULT_PETS_FULL}</span>}
         </div>
       </div>
       <p className="text-zinc-500 text-xs mb-4">
@@ -239,7 +245,7 @@ export function StashPanel() {
               group={g}
               display={displays.get(g.key)!}
               catalogs={catalogs}
-              full={full}
+              addBlocked={addBlocked(g)}
               onAdd={() => setVault((s) => addStashItems(s, [{ ...g.item }]))}
               onRemove={() => setVault((s) => removeStashItemAt(s, g.indices[g.indices.length - 1]))}
               onRemoveAll={() => setVault((s) => removeStashItemsAt(s, g.indices))}

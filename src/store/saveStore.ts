@@ -4,6 +4,7 @@ import { applyCustomization, createDwellerAtDoor, createLegendaryDweller, type D
 import type { LegendaryMeta } from '../types/legendary';
 import { unassignDweller, ALL_ROOMS } from '../lib/rooms';
 import { addStashItems, canStash, equipFromStash, replacedGear } from '../lib/stash';
+import { petLimitError } from '../lib/petLimits';
 
 export type Page = 'vault' | 'dweller';
 
@@ -12,7 +13,7 @@ export type Page = 'vault' | 'dweller';
  * off the dweller (other than the default Fist / jumpsuit) is added to the vault
  * stash; returns null when those items don't fit.
  */
-function editDweller(
+export function editDweller(
   save: SaveJson, id: number, fn: (d: Dweller) => Dweller, stash = false,
 ): SaveJson | null {
   let removed: ReturnType<typeof replacedGear> = [];
@@ -25,6 +26,10 @@ function editDweller(
   if (removed.length > 0 && !canStash(save, removed.length)) return null;
   return addStashItems({ ...save, dwellers: { ...save.dwellers, dwellers } }, removed);
 }
+
+/** State update to `next`, or no change when it is null or breaks a pet limit. */
+const commit = (save: SaveJson, next: SaveJson | null) =>
+  next && !petLimitError(save, next) ? { save: next } : {};
 
 interface SaveState {
   save: SaveJson | null;
@@ -109,20 +114,19 @@ export const useSaveStore = create<SaveState>((set, get) => ({
   updateSelectedDwellerRaw: (fn) => set((state) => {
     const { save, selectedDwellerId } = state;
     if (!save || selectedDwellerId === null) return {};
-    return { save: editDweller(save, selectedDwellerId, fn)! };
+    return commit(save, editDweller(save, selectedDwellerId, fn));
   }),
   swapSelectedGear: (fn, stash) => set((state) => {
     const { save, selectedDwellerId } = state;
     if (!save || selectedDwellerId === null) return {};
-    const next = editDweller(save, selectedDwellerId, fn, stash);
-    return next ? { save: next } : {};
+    return commit(save, editDweller(save, selectedDwellerId, fn, stash));
   }),
   equipSelectedFromStash: (index) => set((state) => {
     const { save, selectedDwellerId } = state;
     if (!save || selectedDwellerId === null) return {};
-    return { save: equipFromStash(save, selectedDwellerId, index) };
+    return commit(save, equipFromStash(save, selectedDwellerId, index));
   }),
-  setVault: (fn) => set((state) => (state.save ? { save: fn(state.save) } : {})),
+  setVault: (fn) => set((state) => (state.save ? commit(state.save, fn(state.save)) : {})),
   addDweller: (input) => {
     const { save } = get();
     if (!save) return null;

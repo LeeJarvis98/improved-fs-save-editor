@@ -20,15 +20,21 @@ import { useGearSource, useStashGear } from '../../lib/useStashGear';
 import { describeStashItem, type ItemCatalogs } from '../StashItemInfo';
 import { StashCornerChip } from './StashCornerChip';
 import { StashViewHeader } from './StashViewHeader';
+import { getDwellerRoom, roomDisplayName } from '../../lib/rooms';
+import {
+  MAX_VAULT_PETS, VAULT_PETS_FULL, roomPetCapacity, roomPetCount, roomPetError, roomSizeName,
+  vaultHasPetRoom, vaultPetCount,
+} from '../../lib/petLimits';
 
 const RARITY_ORDER: Record<string, number> = { Normal: 0, Rare: 1, Legendary: 2 };
 
 const tileClass = (selected: boolean) => [
   'group relative rounded border flex flex-col items-center overflow-hidden transition-colors',
   selected ? 'border-green-400 bg-green-950/40 ring-1 ring-green-400' : 'border-zinc-700 bg-zinc-900 hover:border-zinc-500',
+  'aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:border-zinc-700',
 ].join(' ');
 
-function PetTile({ name, icon, rarity, bonus, selected, onClick, title, children }: {
+function PetTile({ name, icon, rarity, bonus, selected, onClick, title, disabled, children }: {
   name: string;
   icon?: IconRect | null;
   rarity?: string;
@@ -36,6 +42,8 @@ function PetTile({ name, icon, rarity, bonus, selected, onClick, title, children
   selected: boolean;
   onClick: () => void;
   title?: string;
+  /** Blocks picking but, unlike the native attribute, keeps the favorite marker clickable. */
+  disabled?: boolean;
   /** Corner overlays (favorite marker, stash count, …). */
   children?: React.ReactNode;
 }) {
@@ -43,8 +51,9 @@ function PetTile({ name, icon, rarity, bonus, selected, onClick, title, children
     <button
       title={title ?? name}
       aria-pressed={selected}
+      aria-disabled={disabled || undefined}
       data-selected={selected || undefined}
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
       className={tileClass(selected)}
       style={fluidTileStyle(170, 170)}
     >
@@ -61,6 +70,22 @@ function PetTile({ name, icon, rarity, bonus, selected, onClick, title, children
   );
 }
 
+/** A pet limit as a pill, colored by how full it is (green, amber from 80%, red when full). */
+function PetLimitBadge({ label, used, max }: { label: string; used: number; max: number }) {
+  const ratio = max > 0 ? used / max : 1;
+  const tone = ratio >= 1
+    ? 'border-red-500/60 bg-red-950/40 text-red-300'
+    : ratio >= 0.8
+      ? 'border-amber-500/60 bg-amber-950/40 text-amber-300'
+      : 'border-emerald-500/50 bg-emerald-950/40 text-emerald-300';
+  return (
+    <span className={`inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-sm font-medium ${tone}`}>
+      <span>{label}</span>
+      <span className="font-mono font-bold text-base leading-none">{used} / {max}</span>
+    </span>
+  );
+}
+
 export function PetTab({ dweller: _dweller }: { dweller: RenderableDweller }) {
   const [petIndex, setPetIndex] = useState<PetIndex | null>(null);
   const unmounted = useRef(false);
@@ -69,6 +94,8 @@ export function PetTab({ dweller: _dweller }: { dweller: RenderableDweller }) {
     (s.getSelectedDweller() as { equippedPet?: EquipRef } | null)?.equippedPet);
   const equippedId = equippedPet?.id;
   const equipFromStash = useSaveStore((s) => s.equipSelectedFromStash);
+  const save = useSaveStore((s) => s.save);
+  const dwellerId = useSaveStore((s) => s.selectedDwellerId);
 
   const [query, setQuery] = useState('');
   const [rarity, setRarity] = useState<Rarity | null>(null);
@@ -118,19 +145,47 @@ export function PetTab({ dweller: _dweller }: { dweller: RenderableDweller }) {
 
   const equippedDisplay = equippedPet ? describeStashItem(equippedPet, catalogs) : null;
 
+  // A dweller without a pet can't take one into a full room. A brand-new pet also
+  // needs space in the vault; one that replaces an equipped pet only does if the
+  // old pet is stashed, which GearSwapDialog checks.
+  const room = save && dwellerId !== null ? getDwellerRoom(save, dwellerId) : null;
+  const roomBlock = save && dwellerId !== null ? roomPetError(save, dwellerId) : null;
+  const newPetBlock = roomBlock ?? (save && !equippedId && !vaultHasPetRoom(save) ? VAULT_PETS_FULL : null);
+  const shownBlock = source === 'global' ? newPetBlock : roomBlock;
+
   return (
     <div>
-      <SortFilterBar
-        mode="pet"
-        query={query}
-        onQueryChange={setQuery}
-        onReset={() => { setQuery(''); setRarity(null); }}
-        rarity={rarity}
-        onRarityChange={setRarity}
-        source={source}
-        onSourceChange={setSource}
-        stashCount={stash.count}
-      />
+      {/* Limits, notice and filters stick together; the bar's own sticky is a no-op inside this wrapper. */}
+      <div className="sticky top-0 z-10 flow-root bg-zinc-900">
+        {save && (
+          <div className="flex flex-wrap gap-3 px-2 pt-2 pb-1">
+            <PetLimitBadge label="Vault pets" used={vaultPetCount(save)} max={MAX_VAULT_PETS} />
+            {room && (
+              <PetLimitBadge
+                label={`${roomDisplayName(room)} (${roomSizeName(room)} room) pets`}
+                used={roomPetCount(save, room)}
+                max={roomPetCapacity(room)}
+              />
+            )}
+          </div>
+        )}
+        {shownBlock && (
+          <div role="status" className="mx-1 mb-2 rounded border border-amber-500/40 bg-amber-950/30 px-2 py-1.5 text-xs text-amber-300">
+            {shownBlock}
+          </div>
+        )}
+        <SortFilterBar
+          mode="pet"
+          query={query}
+          onQueryChange={setQuery}
+          onReset={() => { setQuery(''); setRarity(null); }}
+          rarity={rarity}
+          onRarityChange={setRarity}
+          source={source}
+          onSourceChange={setSource}
+          stashCount={stash.count}
+        />
+      </div>
       {source === 'global' ? (
         <div className="grid gap-1.5 p-1" style={fluidGridStyle(170, 0.9)}>
           {/* Unknown equipped pet — pinned warning card (preserved on export). */}
@@ -163,9 +218,10 @@ export function PetTab({ dweller: _dweller }: { dweller: RenderableDweller }) {
                 bonus={pet.bonusLabel}
                 selected={pet.id === equippedId}
                 onClick={() => change((d) => setPet(d, pet))}
-                title={inStash
+                disabled={!!newPetBlock}
+                title={newPetBlock ?? (inStash
                   ? `${pet.name} (${pet.rarity}; ${inStash} in stash; picking it here adds a new one)`
-                  : `${pet.name} (${pet.rarity})`}
+                  : `${pet.name} (${pet.rarity})`)}
               >
                 {inStash > 0 && <StashCornerChip>In stash ×{inStash}</StashCornerChip>}
                 <FavoriteToggle active={favorites.includes(pet.id)} onToggle={() => toggle(pet.id)} />
@@ -197,7 +253,8 @@ export function PetTab({ dweller: _dweller }: { dweller: RenderableDweller }) {
                   bonus={p.bonus}
                   selected={false}
                   onClick={() => equipFromStash(p.group.indices[0])}
-                  title={`Equip ${p.name} from the stash (swaps with the equipped pet)`}
+                  disabled={!!roomBlock}
+                  title={roomBlock ?? `Equip ${p.name} from the stash (swaps with the equipped pet)`}
                 >
                   <StashCornerChip count={p.group.indices.length} />
                 </PetTile>
