@@ -3,6 +3,7 @@ import type { SortDir, SpecialKey } from '../../lib/pickerSort';
 import { RARITIES, RARITY_DOT, type Rarity } from '../../lib/petRarity';
 import { specialName, specialTooltip } from '../../lib/special';
 import type { StashSort } from '../../lib/stash';
+import type { GearSource } from '../../lib/useStashGear';
 
 const SPECIALS: SpecialKey[] = ['S', 'P', 'E', 'C', 'I', 'A', 'L'];
 
@@ -281,15 +282,57 @@ function RarityMenu({ rarity, onChange }: { rarity: Rarity | null; onChange: (r:
   );
 }
 
+const SOURCES: { value: GearSource; label: string; title: string }[] = [
+  { value: 'global', label: 'Global', title: 'Every item in the game' },
+  { value: 'stash', label: 'Stash', title: "Items in your vault's stash" },
+];
+
+/** Segmented Global / Stash switch for the weapon, outfit and pet pickers. */
+function SourceToggle({ source, stashCount, onChange }: {
+  source: GearSource;
+  stashCount: number;
+  onChange: (s: GearSource) => void;
+}) {
+  return (
+    <div role="group" aria-label="Item source"
+      className="shrink-0 h-8 p-0.5 flex rounded-md border border-zinc-700 bg-zinc-800">
+      {SOURCES.map((o) => {
+        const isSel = o.value === source;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            aria-pressed={isSel}
+            title={o.title}
+            onClick={() => onChange(o.value)}
+            className={[
+              'px-2.5 rounded flex items-center gap-1.5 text-sm font-medium transition-colors',
+              isSel ? 'bg-green-600 text-white' : 'text-zinc-300 hover:bg-zinc-700',
+            ].join(' ')}
+          >
+            {o.label}
+            {o.value === 'stash' && (
+              <span className={`font-mono text-xs ${isSel ? 'text-green-100' : 'text-zinc-500'}`}>
+                {stashCount}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /**
  * Sticky control bar above a picker grid. Search applies to every mode; the
  * weapon/outfit modes add a sort menu (with a Default/no-sort option), the
  * outfit mode adds a SPECIAL filter popover, the pet mode adds a rarity
- * filter, and the stash mode adds a name/quantity sort. A Reset clears everything.
+ * filter, and the stash mode adds a name/quantity sort. A Reset clears the
+ * filters. The weapon/outfit/pet modes can also lead with a Global / Stash switch.
  */
 export function SortFilterBar({
   mode, query, onQueryChange, onReset, dir, onDirChange, stat, onStatChange, rarity, onRarityChange,
-  stashSort, onStashSortChange,
+  stashSort, onStashSortChange, source, onSourceChange, stashCount = 0,
 }: {
   mode: 'weapon' | 'outfit' | 'pet' | 'stash';
   query: string;
@@ -307,9 +350,17 @@ export function SortFilterBar({
   /** stash mode only */
   stashSort?: StashSort;
   onStashSortChange?: (s: StashSort) => void;
+  /** weapon, outfit + pet modes: Global / Stash switch */
+  source?: GearSource;
+  onSourceChange?: (s: GearSource) => void;
+  stashCount?: number;
 }) {
   return (
     <div className="sticky top-0 z-10 flex items-center gap-2 px-2 py-2 mb-2 bg-zinc-900 border-b border-zinc-700">
+      {source && onSourceChange && (
+        <SourceToggle source={source} stashCount={stashCount} onChange={onSourceChange} />
+      )}
+
       {/* Search with a leading magnifier icon */}
       <div className="relative flex-1 min-w-0">
         <SearchIcon className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />

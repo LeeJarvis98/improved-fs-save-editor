@@ -35,7 +35,7 @@ function TrashIcon({ className }: { className?: string }) {
   );
 }
 
-function CapacityBar({ used, capacity }: { used: number; capacity: number }) {
+export function CapacityBar({ used, capacity }: { used: number; capacity: number }) {
   const ratio = capacity > 0 ? used / capacity : 1;
   const color = ratio >= 1 ? 'bg-red-500' : ratio >= 0.8 ? 'bg-amber-400' : 'bg-emerald-500';
   return (

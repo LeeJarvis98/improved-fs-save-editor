@@ -3,7 +3,7 @@ import type { SaveJson, Dweller } from '../types/save';
 import { applyCustomization, createDwellerAtDoor, createLegendaryDweller, type DwellerCustomization, type NewDwellerInput } from '../lib/dwellerEdit';
 import type { LegendaryMeta } from '../types/legendary';
 import { unassignDweller, ALL_ROOMS } from '../lib/rooms';
-import { addStashItems, canStash, replacedGear } from '../lib/stash';
+import { addStashItems, canStash, equipFromStash, replacedGear } from '../lib/stash';
 
 export type Page = 'vault' | 'dweller';
 
@@ -54,6 +54,8 @@ interface SaveState {
    * otherwise it is discarded.
    */
   swapSelectedGear: (fn: (d: Dweller) => Dweller, stash: boolean) => void;
+  /** Equip stash item `index` on the selected dweller; the item it replaces goes to the stash. */
+  equipSelectedFromStash: (index: number) => void;
   setVault: (fn: (s: SaveJson) => SaveJson) => void;
   /** Add a fresh dweller at the vault door; returns the new dweller's id (or null if no save). */
   addDweller: (input: NewDwellerInput) => number | null;
@@ -114,6 +116,11 @@ export const useSaveStore = create<SaveState>((set, get) => ({
     if (!save || selectedDwellerId === null) return {};
     const next = editDweller(save, selectedDwellerId, fn, stash);
     return next ? { save: next } : {};
+  }),
+  equipSelectedFromStash: (index) => set((state) => {
+    const { save, selectedDwellerId } = state;
+    if (!save || selectedDwellerId === null) return {};
+    return { save: equipFromStash(save, selectedDwellerId, index) };
   }),
   setVault: (fn) => set((state) => (state.save ? { save: fn(state.save) } : {})),
   addDweller: (input) => {

@@ -12,8 +12,11 @@ export type StashItem = EquipRef;
 export const DEFAULT_WEAPON_ID = 'Fist';
 export const DEFAULT_OUTFIT_ID = 'jumpsuit';
 
+// Shared so store selectors get a stable reference when the save has no stash.
+const NO_ITEMS: StashItem[] = [];
+
 export function getStashItems(s: SaveJson): StashItem[] {
-  return (((s.vault as any)?.inventory?.items ?? []) as StashItem[]);
+  return (((s.vault as any)?.inventory?.items ?? NO_ITEMS) as StashItem[]);
 }
 
 function withItems(s: SaveJson, items: StashItem[]): SaveJson {
@@ -74,20 +77,61 @@ export function isDefaultGear(ref: EquipRef): boolean {
   return ref.id === DEFAULT_WEAPON_ID || ref.id === DEFAULT_OUTFIT_ID;
 }
 
+/** Dweller keys holding equipped gear. Pets use the double-p `equippedPet`. */
+const GEAR_SLOTS = ['equipedWeapon', 'equipedOutfit', 'equippedPet'] as const;
+type GearSlot = (typeof GEAR_SLOTS)[number];
+
+const equippedIn = (d: Dweller, slot: GearSlot) => d[slot] as EquipRef | undefined;
+
+/** Same item: same id and the same extraData (a pet's name and bonus). */
+const sameItem = (a: EquipRef, b: EquipRef | undefined) =>
+  !!b && a.id === b.id && JSON.stringify(a.extraData ?? null) === JSON.stringify(b.extraData ?? null);
+
 /**
- * The weapon/outfit refs `before` had equipped that `after` no longer has,
+ * The weapon/outfit/pet refs `before` had equipped that `after` no longer has,
  * excluding the default Fist and jumpsuit. These are what must go to the stash
  * when a dweller's gear is swapped.
  */
 export function replacedGear(before: Dweller, after: Dweller): StashItem[] {
   const out: StashItem[] = [];
-  for (const slot of ['equipedWeapon', 'equipedOutfit'] as const) {
-    const prev = before[slot];
+  for (const slot of GEAR_SLOTS) {
+    const prev = equippedIn(before, slot);
     if (!prev || typeof prev.id !== 'string' || isDefaultGear(prev)) continue;
-    if (after[slot]?.id === prev.id) continue;
+    if (sameItem(prev, equippedIn(after, slot))) continue;
     out.push({ ...prev });
   }
   return out;
+}
+
+function gearSlot(type: string): GearSlot | null {
+  if (type === 'Weapon') return 'equipedWeapon';
+  if (type === 'Outfit') return 'equipedOutfit';
+  if (type === 'Pet') return 'equippedPet';
+  return null;
+}
+
+/**
+ * Equip stash item `index` on dweller `dwellerId`. The item it replaces takes
+ * its place in the stash (nothing does when that was the default Fist /
+ * jumpsuit or no pet), so the stash never grows. No-op for junk, or an unknown
+ * index or dweller.
+ */
+export function equipFromStash(s: SaveJson, dwellerId: number, index: number): SaveJson {
+  const items = getStashItems(s);
+  const item = items[index];
+  const slot = item ? gearSlot(item.type) : null;
+  const dweller = s.dwellers.dwellers.find((d) => d.serializeId === dwellerId);
+  if (!slot || !dweller) return s;
+
+  const prev = equippedIn(dweller, slot);
+  const nextItems = [...items];
+  if (prev && typeof prev.id === 'string' && !isDefaultGear(prev)) nextItems[index] = { ...prev };
+  else nextItems.splice(index, 1);
+
+  const dwellers = s.dwellers.dwellers.map((d) =>
+    d.serializeId === dwellerId ? { ...d, [slot]: { ...item } } : d,
+  );
+  return withItems({ ...s, dwellers: { ...s.dwellers, dwellers } }, nextItems);
 }
 
 // ---------------------------------------------------------------------------
