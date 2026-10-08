@@ -92,7 +92,7 @@ export function StatsTab({ dweller }: { dweller: RenderableDweller }) {
               const extra = bonus[letter] ?? 0;
               const total = base + extra;
               return (
-                <tr key={letter}>
+                <tr key={letter} className="transition-colors hover:bg-zinc-700/50">
                   <td className="py-1">
                     <SpecialIcon letter={letter} size={24} detail={`${base} base${extra ? ` + ${extra} outfit` : ''} = ${total}`} />
                   </td>

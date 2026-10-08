@@ -12,7 +12,7 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="rounded border border-zinc-700 bg-zinc-800/60 p-3" aria-label={title}>
       <h3 className="text-zinc-200 text-sm font-semibold uppercase tracking-wide mb-2">{title}</h3>
-      <dl className="flex flex-col gap-1 text-sm">{children}</dl>
+      <dl className="flex flex-col gap-0.5 text-sm">{children}</dl>
     </section>
   );
 }
@@ -21,8 +21,8 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
 function Row({ label, value, title }: { label: string; value: ReactNode; title?: string }) {
   if (value === null || value === undefined) return null;
   return (
-    <div className="flex items-baseline justify-between gap-3" title={title}>
-      <dt className="text-zinc-400">{label}</dt>
+    <div className="group flex items-baseline justify-between gap-3 -mx-1.5 px-1.5 py-0.5 rounded transition-colors hover:bg-zinc-700/60" title={title}>
+      <dt className="text-zinc-400 transition-colors group-hover:text-zinc-200">{label}</dt>
       <dd className="text-zinc-100 font-mono text-right">{value}</dd>
     </div>
   );

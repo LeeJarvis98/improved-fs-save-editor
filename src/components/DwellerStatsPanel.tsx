@@ -40,8 +40,8 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function Row({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 py-0.5" title={hint}>
-      <span className="text-zinc-400 text-sm">{label}</span>
+    <div className="group flex items-baseline justify-between gap-3 -mx-1.5 px-1.5 py-0.5 rounded transition-colors hover:bg-zinc-700/60" title={hint}>
+      <span className="text-zinc-400 text-sm transition-colors group-hover:text-zinc-200">{label}</span>
       <span className="text-zinc-100 text-sm font-mono text-right">{value}</span>
     </div>
   );
@@ -164,7 +164,7 @@ function DwellerStatsModal({ index, onClose }: { index: SpriteIndex | null; onCl
                   </thead>
                   <tbody>
                     {special.map((s) => (
-                      <tr key={s.letter} className="align-top border-t border-zinc-800">
+                      <tr key={s.letter} className="align-top border-t border-zinc-800 transition-colors hover:bg-zinc-700/50">
                         <td className="py-1.5"><SpecialIcon letter={s.letter} size={22} /></td>
                         <td className="py-1.5 text-center font-mono text-zinc-300">{s.base}</td>
                         <td className={`py-1.5 text-center font-mono ${s.outfit ? 'text-sky-400' : 'text-zinc-600'}`}>
