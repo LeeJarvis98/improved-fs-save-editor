@@ -53,6 +53,8 @@ interface SaveState {
   getSelectedDweller: () => Dweller | null;
   updateSelectedDweller: (patch: DwellerCustomization) => void;
   updateSelectedDwellerRaw: (fn: (d: Dweller) => Dweller) => void;
+  /** Apply a raw edit to any dweller by id (e.g. renaming relatives in the family tree). */
+  updateDwellerRaw: (id: number, fn: (d: Dweller) => Dweller) => void;
   /**
    * Apply a gear-changing edit to the selected dweller. With `stash`, the
    * weapon/outfit it removes goes to the vault stash (no-op if the stash is full);
@@ -119,6 +121,11 @@ export const useSaveStore = create<SaveState>((set, get) => ({
     const { save, selectedDwellerId } = state;
     if (!save || selectedDwellerId === null) return {};
     return commit(save, editDweller(save, selectedDwellerId, fn));
+  }),
+  updateDwellerRaw: (id, fn) => set((state) => {
+    const { save } = state;
+    if (!save) return {};
+    return commit(save, editDweller(save, id, fn));
   }),
   swapSelectedGear: (fn, stash) => set((state) => {
     const { save, selectedDwellerId } = state;

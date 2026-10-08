@@ -21,7 +21,8 @@ export interface Sibling { dweller: Dweller; half: boolean }
 export interface Family {
   father: RelativeRef | null;
   mother: RelativeRef | null;
-  grandparents: { label: string; ref: RelativeRef }[];
+  /** Always four slots: father's father, father's mother, mother's father, mother's mother. */
+  grandparents: { label: string; ref: RelativeRef | null }[];
   partner: RelativeRef | null;
   lastPartner: RelativeRef | null;
   children: Dweller[];
@@ -89,10 +90,7 @@ export function getFamily(save: SaveJson, id: number): Family | null {
     }
   }
 
-  const grandparents = asc.slice(2).flatMap((gid, i) => {
-    const ref = resolve(gid);
-    return ref ? [{ label: GRANDPARENT_LABELS[i], ref }] : [];
-  });
+  const grandparents = asc.slice(2).map((gid, i) => ({ label: GRANDPARENT_LABELS[i], ref: resolve(gid) }));
 
   const partner = resolve(rel.partner);
   const lastPartner = resolve(rel.lastPartner);

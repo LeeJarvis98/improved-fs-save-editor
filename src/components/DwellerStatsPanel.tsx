@@ -10,10 +10,9 @@ import { MAX_LEVEL, MAX_HEALTH } from '../lib/dwellerEdit';
 import {
   computeDwellerStats, maxHpAt, petBonusNote, BASE_HP, MAX_TOTAL_SPECIAL, WASTELAND_RAD_IMMUNE_END,
 } from '../lib/dwellerStats';
-import { getFamily, type RelativeRef } from '../lib/family';
 import { SpecialIcon } from './SpecialIcon';
 import { EditorTabBar } from './editor/EditorTabBar';
-import type { Dweller } from '../types/save';
+import { FamilyTree } from './FamilyTree';
 import type { SpriteIndex } from '../types/pieces';
 import type { WeaponIndex } from '../types/weapons';
 import type { PetIndex } from '../types/pets';
@@ -51,102 +50,6 @@ function Row({ label, value, hint }: { label: string; value: ReactNode; hint?: s
 const Note = ({ children }: { children: ReactNode }) => (
   <p className="text-zinc-500 text-xs mt-2">{children}</p>
 );
-
-const fullNameOf = (d: Dweller) => `${d.name ?? ''} ${d.lastName ?? ''}`.trim() || `Dweller #${d.serializeId}`;
-
-/** A relative's name; clicking it switches the editor to that dweller. */
-function RelativeChip({ dweller, note }: { dweller: Dweller; note?: string }) {
-  const selectDweller = useSaveStore((s) => s.selectDweller);
-  const female = dweller.gender === 1;
-  return (
-    <button
-      type="button"
-      onClick={() => selectDweller(dweller.serializeId)}
-      title={`Show ${fullNameOf(dweller)}`}
-      className="inline-flex items-center gap-1.5 rounded border border-zinc-700 bg-zinc-800 px-2 py-0.5 text-sm text-zinc-100 hover:border-green-500 hover:text-green-400 transition-colors"
-    >
-      <span className={female ? 'text-pink-400' : 'text-sky-400'} aria-label={female ? 'female' : 'male'}>
-        {female ? '♀' : '♂'}
-      </span>
-      {fullNameOf(dweller)}
-      <span className="text-zinc-500 text-xs">Lv {dweller.experience?.currentLevel ?? 1}</span>
-      {note && <span className="text-zinc-500 text-xs">· {note}</span>}
-    </button>
-  );
-}
-
-function RefChip({ refValue }: { refValue: RelativeRef }) {
-  return refValue.kind === 'present'
-    ? <RelativeChip dweller={refValue.dweller} />
-    : <span className="text-sm italic text-zinc-500">No longer in the vault</span>;
-}
-
-function FamilyRow({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex items-start gap-3 py-1">
-      <span className="w-32 shrink-0 text-zinc-400 text-sm pt-0.5">{label}</span>
-      <div className="flex flex-wrap gap-1.5 min-w-0">{children}</div>
-    </div>
-  );
-}
-
-function FamilySection({ dwellerId }: { dwellerId: number }) {
-  const save = useSaveStore((s) => s.save);
-  const family = useMemo(() => (save ? getFamily(save, dwellerId) : null), [save, dwellerId]);
-  if (!family) return null;
-
-  const { father, mother, grandparents, partner, lastPartner, siblings, children, grandchildren, relationships } = family;
-  const empty = !father && !mother && grandparents.length === 0 && !partner && !lastPartner
-    && siblings.length === 0 && children.length === 0 && grandchildren.length === 0 && relationships.length === 0;
-
-  return (
-    <Section title="Family">
-      {empty ? (
-        <p className="text-zinc-500 text-sm">No family recorded for this dweller.</p>
-      ) : (
-        <>
-          {father && <FamilyRow label="Father"><RefChip refValue={father} /></FamilyRow>}
-          {mother && <FamilyRow label="Mother"><RefChip refValue={mother} /></FamilyRow>}
-          {grandparents.map(({ label, ref }) => (
-            <FamilyRow key={label} label={label}><RefChip refValue={ref} /></FamilyRow>
-          ))}
-          {partner && <FamilyRow label="Partner"><RefChip refValue={partner} /></FamilyRow>}
-          {lastPartner && <FamilyRow label="Last partner"><RefChip refValue={lastPartner} /></FamilyRow>}
-          {siblings.length > 0 && (
-            <FamilyRow label={`Siblings (${siblings.length})`}>
-              {siblings.map(({ dweller, half }) => (
-                <RelativeChip key={dweller.serializeId} dweller={dweller} note={half ? 'half' : undefined} />
-              ))}
-            </FamilyRow>
-          )}
-          {children.length > 0 && (
-            <FamilyRow label={`Children (${children.length})`}>
-              {children.map((d) => <RelativeChip key={d.serializeId} dweller={d} />)}
-            </FamilyRow>
-          )}
-          {grandchildren.length > 0 && (
-            <FamilyRow label={`Grandchildren (${grandchildren.length})`}>
-              {grandchildren.map((d) => <RelativeChip key={d.serializeId} dweller={d} />)}
-            </FamilyRow>
-          )}
-          {relationships.length > 0 && (
-            <FamilyRow label="Getting close to">
-              {relationships.map(({ ref, value }, i) => (
-                ref.kind === 'present'
-                  ? <RelativeChip key={i} dweller={ref.dweller} note={value !== null ? `level ${value}` : undefined} />
-                  : <RefChip key={i} refValue={ref} />
-              ))}
-            </FamilyRow>
-          )}
-        </>
-      )}
-      <Note>
-        Read-only. Click a name to open that dweller. Relatives the game no longer tracks by name (they left the
-        vault) show as "No longer in the vault". Related dwellers can't have children together.
-      </Note>
-    </Section>
-  );
-}
 
 /** Info button for the top-right corner of the dweller portrait; opens the stats panel. */
 export function DwellerStatsButton({ index }: { index: SpriteIndex | null }) {
@@ -245,7 +148,7 @@ function DwellerStatsModal({ index, onClose }: { index: SpriteIndex | null; onCl
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4">
-          {tab === 'family' && <FamilySection dwellerId={dweller.serializeId} />}
+          {tab === 'family' && <FamilyTree dwellerId={dweller.serializeId} />}
           {tab === 'stats' && (
             <>
               <Section title="SPECIAL">
